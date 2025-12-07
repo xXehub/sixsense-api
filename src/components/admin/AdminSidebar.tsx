@@ -161,12 +161,12 @@ export default function AdminSidebar() {
                               flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium
                               transition-all duration-150
                               ${isChildActive 
-                                ? 'bg-primary text-black' 
+                                ? 'bg-primary/15 text-primary border border-primary/30' 
                                 : 'text-gray-400 hover:bg-[#151515] hover:text-white'
                               }
                             `}
                           >
-                            <child.icon className={`h-3.5 w-3.5 ${isChildActive ? 'text-black' : 'text-gray-500'}`} />
+                            <child.icon className={`h-3.5 w-3.5 ${isChildActive ? 'text-primary' : 'text-gray-500'}`} />
                             <span>{child.name}</span>
                           </Link>
                         );
@@ -185,12 +185,12 @@ export default function AdminSidebar() {
                   flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium
                   transition-all duration-150
                   ${isActive 
-                    ? 'bg-primary text-black' 
+                    ? 'bg-primary/15 text-primary border border-primary/30' 
                     : 'text-gray-400 hover:bg-[#151515] hover:text-white'
                   }
                 `}
               >
-                <item.icon className={`h-4 w-4 ${isActive ? 'text-black' : 'text-gray-500'}`} />
+                <item.icon className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-gray-500'}`} />
                 <span className="flex-1">{item.name}</span>
               </Link>
             );
