@@ -1,0 +1,560 @@
+{
+  "project": "sixsense-admin-panel-ui-enhancement",
+  "description": "Phase 8: Enhance admin panel UI with reusable components, server-side datatable, CRUD modals, and toast notifications - matching Skeet/Gamesense green theme",
+  "theme": {
+    "name": "Skeet/Gamesense Green - Consistent Across All Pages",
+    "colors": {
+      "primary": "#4ade80",
+      "primaryHover": "#22c55e",
+      "background": "#0a0a0a",
+      "backgroundCard": "#141414",
+      "border": "#262626",
+      "text": "#ffffff",
+      "premium": "#f59e0b",
+      "premiumGlow": "rgba(245, 158, 11, 0.25)"
+    }
+  },
+  "phases": [
+    {
+      "id": 1,
+      "name": "Core Reusable Components",
+      "status": "pending",
+      "description": "Create fundamental UI components for admin panel",
+      "tasks": [
+        {
+          "id": "1.1",
+          "task": "Create Modal component with variants (default, confirm, form)",
+          "file": "src/components/ui/Modal.tsx",
+          "details": [
+            "Support size variants: sm, md, lg, xl, full",
+            "Close button with X icon",
+            "Backdrop with blur effect",
+            "Animation: fade in/out",
+            "Footer with action buttons",
+            "Proper focus trap and ESC to close"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.2",
+          "task": "Create ConfirmDialog component for delete/dangerous actions",
+          "file": "src/components/ui/ConfirmDialog.tsx",
+          "details": [
+            "Warning icon with red/yellow variant",
+            "Title, description, and custom message",
+            "Confirm and Cancel buttons",
+            "Danger variant with red accent",
+            "Auto-focus on cancel button for safety"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.3",
+          "task": "Create Toast/Notification system (top-right corner)",
+          "file": "src/components/ui/Toast.tsx",
+          "details": [
+            "Position: top-right with auto-stack",
+            "Variants: success, error, warning, info",
+            "Auto-dismiss after 5s (configurable)",
+            "Manual dismiss with X button",
+            "Slide-in animation from right",
+            "Toast queue management",
+            "Icons for each variant (CheckCircle, AlertCircle, etc)"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.4",
+          "task": "Create ToastProvider context wrapper",
+          "file": "src/components/providers/ToastProvider.tsx",
+          "details": [
+            "useToast hook: addToast, removeToast, clearAll",
+            "Global toast container",
+            "Max 5 toasts visible at once",
+            "Auto-remove oldest when exceeds limit"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.5",
+          "task": "Create DataTable component (server-side pagination)",
+          "file": "src/components/ui/DataTable.tsx",
+          "details": [
+            "Server-side pagination with page controls",
+            "Sortable columns (click header to sort)",
+            "Search/filter input (debounced)",
+            "Loading skeleton state",
+            "Empty state with icon and message",
+            "Row selection with checkbox (optional)",
+            "Action buttons per row (edit, delete, etc)",
+            "Customizable columns with render functions",
+            "Rows per page selector (10, 25, 50, 100)",
+            "Total count and current page info"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.6",
+          "task": "Create Pagination component",
+          "file": "src/components/ui/Pagination.tsx",
+          "details": [
+            "Previous/Next buttons",
+            "Page number buttons (max 7 visible)",
+            "Jump to first/last page",
+            "Current page highlight with primary color",
+            "Disabled state for unavailable pages"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.7",
+          "task": "Create LoadingSkeleton component",
+          "file": "src/components/ui/LoadingSkeleton.tsx",
+          "details": [
+            "Table skeleton for DataTable loading",
+            "Card skeleton for dashboard stats",
+            "Text skeleton for content loading",
+            "Shimmer animation effect",
+            "Configurable rows and columns"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "1.8",
+          "task": "Create EmptyState component",
+          "file": "src/components/ui/EmptyState.tsx",
+          "details": [
+            "Icon support (customizable)",
+            "Title and description",
+            "Optional CTA button",
+            "Variants for different contexts (no data, no results, error)"
+          ],
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Admin-Specific Components",
+      "status": "pending",
+      "description": "Components tailored for admin panel functionality",
+      "tasks": [
+        {
+          "id": "2.1",
+          "task": "Create StatsCard component for dashboard metrics",
+          "file": "src/components/admin/StatsCard.tsx",
+          "details": [
+            "Icon with background color",
+            "Value with large font",
+            "Label text",
+            "Optional change indicator (+/- percentage)",
+            "Hover effect with glow",
+            "Variants: default, premium (yellow glow)"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "2.2",
+          "task": "Create UserFormModal for create/edit users",
+          "file": "src/components/admin/UserFormModal.tsx",
+          "details": [
+            "Discord ID field (disabled for edit)",
+            "Discord username field",
+            "Email field",
+            "Role selector (user, admin, superadmin)",
+            "Is banned toggle",
+            "Form validation with error messages",
+            "Submit and Cancel buttons",
+            "Loading state during submission"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "2.3",
+          "task": "Create KeyFormModal for create/edit keys",
+          "file": "src/components/admin/KeyFormModal.tsx",
+          "details": [
+            "User selector (Discord ID/username autocomplete)",
+            "Key type selector (daily, weekly, monthly, lifetime, premium, vip)",
+            "HWID field (optional, auto-generated if empty)",
+            "Expiry date picker (auto-calculated based on type)",
+            "Max resets field",
+            "Is active toggle",
+            "Form validation",
+            "Submit and Cancel buttons"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "2.4",
+          "task": "Create GameFormModal for create/edit games",
+          "file": "src/components/admin/GameFormModal.tsx",
+          "details": [
+            "Place ID field",
+            "Game name field",
+            "Description textarea",
+            "Thumbnail URL field (optional)",
+            "Script version field",
+            "Min key tier selector (free, premium, vip)",
+            "Is active toggle",
+            "Form validation",
+            "Submit and Cancel buttons"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "2.5",
+          "task": "Create AdminSidebar component",
+          "file": "src/components/admin/AdminSidebar.tsx",
+          "details": [
+            "Logo at top",
+            "Navigation links with icons (Dashboard, Users, Keys, Games, Settings)",
+            "Active link highlight with primary color",
+            "Hover effects",
+            "User info at bottom (avatar, username, role badge)",
+            "Logout button",
+            "Collapsible on mobile"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "2.6",
+          "task": "Create AdminHeader component",
+          "file": "src/components/admin/AdminHeader.tsx",
+          "details": [
+            "Page title",
+            "Breadcrumb navigation",
+            "Search bar (global search - optional)",
+            "Notifications bell icon",
+            "User avatar dropdown",
+            "Mobile menu toggle"
+          ],
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Admin Panel Pages Refactor",
+      "status": "pending",
+      "description": "Refactor existing admin pages to use new components",
+      "tasks": [
+        {
+          "id": "3.1",
+          "task": "Refactor Dashboard page with new components",
+          "file": "src/app/x-admin-panel/page.tsx",
+          "details": [
+            "Use StatsCard for metrics (Total Users, Active Keys, Total Games, Revenue)",
+            "Use DataTable for recent activities",
+            "Add PageBackground component",
+            "Add Toast notifications",
+            "Use LoadingSkeleton while loading",
+            "Premium stats with yellow glow"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "3.2",
+          "task": "Create Users Management page",
+          "file": "src/app/x-admin-panel/users/page.tsx",
+          "details": [
+            "DataTable with columns: Avatar, Discord Username, Discord ID, Email, Role, Status, Actions",
+            "Search by username or Discord ID",
+            "Filter by role and status",
+            "Sort by created date, username",
+            "Create User button (opens UserFormModal)",
+            "Edit button per row (opens UserFormModal with data)",
+            "Delete button per row (opens ConfirmDialog)",
+            "Ban/Unban toggle button",
+            "Toast notifications for all actions",
+            "Server-side pagination"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "3.3",
+          "task": "Create Keys Management page",
+          "file": "src/app/x-admin-panel/keys/page.tsx",
+          "details": [
+            "DataTable with columns: Key, User, Type, Expires, HWID, Resets, Status, Actions",
+            "Search by key or user",
+            "Filter by type and status",
+            "Sort by created date, expiry date",
+            "Create Key button (opens KeyFormModal)",
+            "Edit button per row (opens KeyFormModal with data)",
+            "Delete button per row (opens ConfirmDialog)",
+            "Revoke/Activate toggle button",
+            "Reset HWID button (opens ConfirmDialog)",
+            "Toast notifications for all actions",
+            "Server-side pagination",
+            "Premium keys with yellow highlight"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "3.4",
+          "task": "Create Games Management page",
+          "file": "src/app/x-admin-panel/games/page.tsx",
+          "details": [
+            "DataTable with columns: Thumbnail, Game Name, Place ID, Version, Tier, Executions, Status, Actions",
+            "Search by game name or place ID",
+            "Filter by tier and status",
+            "Sort by executions, created date",
+            "Create Game button (opens GameFormModal)",
+            "Edit button per row (opens GameFormModal with data)",
+            "Delete button per row (opens ConfirmDialog)",
+            "Activate/Deactivate toggle button",
+            "Toast notifications for all actions",
+            "Server-side pagination",
+            "Roblox thumbnail preview"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "3.5",
+          "task": "Create Admin Settings page",
+          "file": "src/app/x-admin-panel/settings/page.tsx",
+          "details": [
+            "Site settings form (site name, description, etc)",
+            "API keys management",
+            "Script version management",
+            "Discord OAuth settings",
+            "Danger zone (clear cache, reset database - with ConfirmDialog)",
+            "Toast notifications for saves",
+            "Use Card components for sections"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "3.6",
+          "task": "Update AdminLayout with new sidebar and header",
+          "file": "src/app/x-admin-panel/layout.tsx",
+          "details": [
+            "Use AdminSidebar component",
+            "Use AdminHeader component",
+            "Add ToastProvider wrapper",
+            "Responsive layout (sidebar collapse on mobile)",
+            "PageBackground component",
+            "Consistent spacing and padding"
+          ],
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "API Routes Enhancement",
+      "status": "pending",
+      "description": "Update API routes to support pagination, sorting, and filtering",
+      "tasks": [
+        {
+          "id": "4.1",
+          "task": "Update /api/admin/users with pagination and filtering",
+          "file": "src/app/api/admin/users/route.ts",
+          "details": [
+            "Accept query params: page, limit, search, role, status, sortBy, sortOrder",
+            "Return: { users: [], total: number, page: number, totalPages: number }",
+            "Implement search by username or Discord ID",
+            "Filter by role and ban status",
+            "Sort by created_at, username, etc",
+            "Default limit: 25"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "4.2",
+          "task": "Update /api/admin/keys with pagination and filtering",
+          "file": "src/app/api/admin/keys/route.ts",
+          "details": [
+            "Accept query params: page, limit, search, type, status, sortBy, sortOrder",
+            "Return: { keys: [], total: number, page: number, totalPages: number }",
+            "Implement search by key or user Discord ID",
+            "Filter by key type and active status",
+            "Sort by created_at, expires_at, etc",
+            "Default limit: 25"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "4.3",
+          "task": "Update /api/admin/games with pagination and filtering",
+          "file": "src/app/api/admin/games/route.ts",
+          "details": [
+            "Accept query params: page, limit, search, tier, status, sortBy, sortOrder",
+            "Return: { games: [], total: number, page: number, totalPages: number }",
+            "Implement search by game name or place ID",
+            "Filter by min_key_tier and is_active",
+            "Sort by total_executions, created_at, etc",
+            "Default limit: 25"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "4.4",
+          "task": "Create CRUD endpoints for users",
+          "file": "src/app/api/admin/users/[id]/route.ts",
+          "details": [
+            "GET /api/admin/users/[id] - Get single user",
+            "PUT /api/admin/users/[id] - Update user",
+            "DELETE /api/admin/users/[id] - Delete user",
+            "POST /api/admin/users/[id]/ban - Ban user",
+            "POST /api/admin/users/[id]/unban - Unban user",
+            "Proper error handling and validation"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "4.5",
+          "task": "Create CRUD endpoints for keys",
+          "file": "src/app/api/admin/keys/[id]/route.ts",
+          "details": [
+            "GET /api/admin/keys/[id] - Get single key",
+            "PUT /api/admin/keys/[id] - Update key",
+            "DELETE /api/admin/keys/[id] - Delete key",
+            "POST /api/admin/keys/[id]/revoke - Revoke key",
+            "POST /api/admin/keys/[id]/reset-hwid - Reset HWID",
+            "Proper error handling and validation"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "4.6",
+          "task": "Create CRUD endpoints for games",
+          "file": "src/app/api/admin/games/[id]/route.ts",
+          "details": [
+            "GET /api/admin/games/[id] - Get single game",
+            "PUT /api/admin/games/[id] - Update game",
+            "DELETE /api/admin/games/[id] - Delete game",
+            "POST /api/admin/games/[id]/toggle - Toggle active status",
+            "Proper error handling and validation"
+          ],
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Polish & Optimization",
+      "status": "pending",
+      "description": "Final touches and performance optimization",
+      "tasks": [
+        {
+          "id": "5.1",
+          "task": "Add loading states to all admin pages",
+          "details": [
+            "Use LoadingSkeleton during data fetching",
+            "Disable buttons during submission",
+            "Show spinner in buttons when loading"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "5.2",
+          "task": "Add error boundaries for admin panel",
+          "file": "src/app/x-admin-panel/error.tsx",
+          "details": [
+            "Catch and display errors gracefully",
+            "Retry button",
+            "Back to dashboard button"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "5.3",
+          "task": "Optimize DataTable performance",
+          "details": [
+            "Memoize columns and data",
+            "Debounce search input (500ms)",
+            "Virtual scrolling for large datasets (optional)",
+            "Cache pagination results"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "5.4",
+          "task": "Add keyboard shortcuts for admin panel",
+          "details": [
+            "Ctrl+K or Cmd+K: Open search",
+            "ESC: Close modals/dialogs",
+            "Ctrl+N or Cmd+N: Create new (on list pages)",
+            "Arrow keys: Navigate table rows"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "5.5",
+          "task": "Test responsive design on mobile and tablet",
+          "details": [
+            "DataTable should be scrollable horizontally on mobile",
+            "Sidebar should collapse to hamburger menu",
+            "Forms should stack properly on mobile",
+            "Toast notifications should not overlap on small screens"
+          ],
+          "status": "pending"
+        },
+        {
+          "id": "5.6",
+          "task": "Add dark mode consistency check",
+          "details": [
+            "Ensure all new components use CSS variables",
+            "Test all hover states and focus states",
+            "Verify glow effects work properly",
+            "Check contrast ratios for accessibility"
+          ],
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "designGuidelines": {
+    "components": {
+      "spacing": "Use Tailwind spacing scale (p-4, p-6, gap-4, etc)",
+      "borderRadius": "var(--radius) for cards, var(--radius-sm) for buttons",
+      "transitions": "duration-300 ease-out for smooth animations",
+      "shadows": "Use glow effects for premium features, subtle shadows for depth"
+    },
+    "colors": {
+      "primary": "Green (#4ade80) for main actions and highlights",
+      "premium": "Amber/Yellow (#f59e0b) for premium features with glow",
+      "danger": "Red (#ef4444) for delete/dangerous actions",
+      "success": "Green for success states",
+      "warning": "Amber for warning states",
+      "info": "Blue for informational states"
+    },
+    "typography": {
+      "headings": "font-bold with appropriate sizes",
+      "body": "text-sm or text-base",
+      "labels": "text-xs uppercase tracking-wide text-muted"
+    },
+    "consistency": {
+      "allPages": "Use PageBackground on all admin pages",
+      "cards": "Consistent padding and hover effects",
+      "buttons": "Same variants across all components",
+      "forms": "Consistent input styling and validation messages"
+    }
+  },
+  "dependencies": {
+    "existing": [
+      "next-auth",
+      "lucide-react",
+      "@headlessui/react"
+    ],
+    "toConsider": [
+      "react-hook-form - for form validation",
+      "zod - for schema validation",
+      "date-fns - for date formatting in tables"
+    ]
+  },
+  "notes": [
+    "All new components MUST use existing CSS variables from globals.css",
+    "DataTable should support both client-side and server-side pagination",
+    "Modal components should have proper focus management and accessibility",
+    "Toast notifications should stack properly and auto-dismiss",
+    "Premium features (keys, users) should have yellow glow styling",
+    "All CRUD operations should show toast notifications (success/error)",
+    "Admin panel should be protected by admin role check",
+    "Use optimistic UI updates where possible for better UX",
+    "All forms should have proper validation and error messages",
+    "Responsive design is critical - test on mobile, tablet, desktop"
+  ]
+}

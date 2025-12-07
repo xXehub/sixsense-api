@@ -1,167 +1,102 @@
 'use client';
 
-import { ReactNode, useEffect, useRef } from 'react';
+import { Fragment, ReactNode } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { Button } from './Button';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
-  description?: string;
+  title?: string;
   children: ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  showCloseButton?: boolean;
 }
 
-const sizeStyles = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
+const sizeClasses = {
+  sm: 'max-w-md',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+  full: 'max-w-7xl',
 };
 
-export function Modal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  description, 
-  children, 
-  footer,
-  size = 'md' 
-}: ModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Handle escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen, onClose]);
-
-  // Handle click outside
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) {
-      onClose();
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div 
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="
-        fixed inset-0 z-50
-        flex items-center justify-center p-4
-        bg-black/60 backdrop-blur-sm
-        animate-in fade-in duration-200
-      "
-    >
-      <div 
-        ref={contentRef}
-        className={`
-          relative w-full ${sizeStyles[size]}
-          bg-[var(--background-card)] border border-[var(--border)]
-          rounded-xl shadow-2xl shadow-black/40
-          animate-in zoom-in-95 slide-in-from-bottom-4 duration-200
-        `}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-[var(--border)]">
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--text)]">{title}</h2>
-            {description && (
-              <p className="text-sm text-[var(--text-muted)] mt-1">{description}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="
-              p-1.5 rounded-lg
-              text-[var(--text-muted)] hover:text-[var(--text)]
-              hover:bg-[var(--background-lighter)]
-              transition-colors
-            "
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-5">
-          {children}
-        </div>
-
-        {/* Footer */}
-        {footer && (
-          <div className="flex items-center justify-end gap-3 p-5 border-t border-[var(--border)]">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Confirm Dialog Variant
-interface ConfirmDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  title: string;
-  description: string;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'danger' | 'warning' | 'default';
-  loading?: boolean;
-}
-
-export function ConfirmDialog({
+export function Modal({
   isOpen,
   onClose,
-  onConfirm,
   title,
-  description,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  variant = 'default',
-  loading = false,
-}: ConfirmDialogProps) {
-  const buttonVariant = variant === 'danger' ? 'primary' : variant === 'warning' ? 'secondary' : 'primary';
-  
+  children,
+  size = 'md',
+  footer,
+  showCloseButton = true,
+}: ModalProps) {
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={title}
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
-            {cancelText}
-          </Button>
-          <Button 
-            variant={buttonVariant}
-            onClick={onConfirm} 
-            disabled={loading}
-            className={variant === 'danger' ? 'bg-red-600 hover:bg-red-500 border-red-600' : ''}
-          >
-            {loading ? 'Loading...' : confirmText}
-          </Button>
-        </>
-      }
-    >
-      <p className="text-[var(--text-muted)]">{description}</p>
-    </Modal>
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        {/* Backdrop */}
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
+        </Transition.Child>
+
+        {/* Modal Container */}
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel
+                className={`w-full ${sizeClasses[size]} transform overflow-hidden rounded-lg bg-background-card border border-white/10 shadow-xl transition-all`}
+              >
+                {/* Header */}
+                {(title || showCloseButton) && (
+                  <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                    {title && (
+                      <Dialog.Title className="text-lg font-bold text-white">
+                        {title}
+                      </Dialog.Title>
+                    )}
+                    {showCloseButton && (
+                      <button
+                        onClick={onClose}
+                        className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-white/5 hover:text-white ml-auto"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Content */}
+                <div className="px-6 py-4">{children}</div>
+
+                {/* Footer */}
+                {footer && (
+                  <div className="border-t border-white/10 px-6 py-4">
+                    {footer}
+                  </div>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
   );
 }
+
+export default Modal;

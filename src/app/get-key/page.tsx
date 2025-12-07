@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageBackground } from '@/components/ui/PageBackground';
-import { useToast } from '@/components/ui/Toast';
+import { useToast } from '@/components/providers/ToastProvider';
 import { 
   Key, 
   Shield, 
@@ -72,7 +72,7 @@ export default function GetKeyPage() {
 
   const handleFreeProvider = (providerId: string) => {
     if (!session) {
-      addToast('warning', 'Login Required', 'Please login with Discord first');
+      addToast('Please login with Discord first', 'warning');
       return;
     }
     setSelectedProvider(providerId);
@@ -114,10 +114,10 @@ export default function GetKeyPage() {
 
       setGeneratedKey(data.key || data.data?.key);
       setStep(3);
-      addToast('success', 'Key Generated!', 'Your key has been created successfully');
+      addToast('Your key has been created successfully', 'success');
     } catch (err: any) {
       setError(err.message);
-      addToast('error', 'Error', err.message);
+      addToast(err.message || 'Failed to generate key', 'error');
     } finally {
       setLoading(false);
     }
@@ -126,7 +126,7 @@ export default function GetKeyPage() {
   const copyKey = async () => {
     if (!generatedKey) return;
     await navigator.clipboard.writeText(generatedKey);
-    addToast('success', 'Copied!', 'Key copied to clipboard');
+    addToast('Key copied to clipboard', 'success');
   };
 
   const resetFlow = () => {
