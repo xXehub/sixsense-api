@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
     // List all supported games (public info only)
     const { data, error } = await supabase
       .from('supported_games')
-      .select('place_id, game_name, script_version, description, total_executions')
+      .select('id, place_id, game_name, script_version, description, thumbnail_url, min_key_tier, is_active, total_executions')
       .eq('is_active', true)
-      .order('game_name', { ascending: true });
+      .order('total_executions', { ascending: false });
 
     if (error) {
       return errorResponse('DATABASE_ERROR', 'Failed to fetch games', 500);
@@ -50,11 +50,15 @@ export async function GET(request: NextRequest) {
 
     return successResponse({
       games: data?.map(g => ({
+        id: g.id,
         place_id: g.place_id,
-        name: g.game_name,
-        version: g.script_version,
+        game_name: g.game_name,
+        script_version: g.script_version,
         description: g.description,
-        executions: g.total_executions
+        thumbnail_url: g.thumbnail_url,
+        min_key_tier: g.min_key_tier,
+        is_active: g.is_active,
+        total_executions: g.total_executions
       })) || [],
       total: data?.length || 0
     });

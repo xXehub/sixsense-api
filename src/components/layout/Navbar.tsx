@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession, signIn } from 'next-auth/react';
 import { Container } from './Container';
 import { Button } from '../ui/Button';
+import { UserMenu } from '../ui/UserMenu';
 import { 
   Menu, 
   X, 
@@ -14,6 +16,8 @@ import {
   Home,
   MessageCircle,
   LogIn,
+  Loader2,
+  LayoutDashboard,
 } from 'lucide-react';
 
 const navLinks = [
@@ -23,9 +27,14 @@ const navLinks = [
   { href: '/premium', label: 'Premium', icon: Crown },
 ];
 
+const authNavLinks = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+];
+
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { data: session, status } = useSession();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)]">
@@ -65,9 +74,31 @@ export function Navbar() {
                 </Link>
               );
             })}
+            {/* Auth-only links */}
+            {session && authNavLinks.map((link) => {
+              const isActive = pathname === link.href;
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                    transition-all duration-150
+                    ${isActive 
+                      ? 'text-[var(--primary)] bg-[var(--primary)]/10' 
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--background-card)]'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
 
-          {/* Right Side - Discord & Login */}
+          {/* Right Side - Discord & Login/UserMenu */}
           <div className="hidden md:flex items-center gap-3">
             <Link
               href="https://discord.gg/sixsense"
@@ -77,13 +108,23 @@ export function Navbar() {
               <MessageCircle className="w-4 h-4" />
               Discord
             </Link>
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<LogIn className="w-4 h-4" />}
-            >
-              Login
-            </Button>
+            
+            {status === 'loading' ? (
+              <div className="w-8 h-8 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-[var(--primary)] animate-spin" />
+              </div>
+            ) : session ? (
+              <UserMenu />
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<LogIn className="w-4 h-4" />}
+                onClick={() => signIn('discord')}
+              >
+                Login
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -121,6 +162,29 @@ export function Navbar() {
                   </Link>
                 );
               })}
+              {/* Auth-only mobile links */}
+              {session && authNavLinks.map((link) => {
+                const isActive = pathname === link.href;
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`
+                      flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
+                      transition-all duration-150
+                      ${isActive 
+                        ? 'text-[var(--primary)] bg-[var(--primary)]/10' 
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--background-card)]'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {link.label}
+                  </Link>
+                );
+              })}
               <div className="border-t border-[var(--border)] my-2" />
               <Link
                 href="https://discord.gg/sixsense"
@@ -131,13 +195,20 @@ export function Navbar() {
                 Discord
               </Link>
               <div className="px-4 pt-2">
-                <Button
-                  variant="primary"
-                  fullWidth
-                  leftIcon={<LogIn className="w-4 h-4" />}
-                >
-                  Login with Discord
-                </Button>
+                {session ? (
+                  <div className="flex items-center justify-center">
+                    <UserMenu />
+                  </div>
+                ) : (
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    leftIcon={<LogIn className="w-4 h-4" />}
+                    onClick={() => signIn('discord')}
+                  >
+                    Login with Discord
+                  </Button>
+                )}
               </div>
             </div>
           </div>
