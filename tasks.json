@@ -1,0 +1,285 @@
+{
+  "project": "sixsense-web-redesign",
+  "description": "Redesign sixsense website with Chiyo-style UI, Skeet/Gamesense green theme, Discord OAuth, and admin panel",
+  "colorPalette": {
+    "name": "Skeet/Gamesense Green Theme",
+    "colors": {
+      "primary": "#4ade80",
+      "primaryHover": "#22c55e",
+      "primaryDark": "#16a34a",
+      "accent": "#86efac",
+      "background": "#0a0a0a",
+      "backgroundSecondary": "#111111",
+      "backgroundCard": "#151515",
+      "backgroundCardHover": "#1a1a1a",
+      "border": "#262626",
+      "borderHover": "#4ade80",
+      "text": "#ffffff",
+      "textSecondary": "#a3a3a3",
+      "textMuted": "#737373",
+      "success": "#4ade80",
+      "error": "#ef4444",
+      "warning": "#f59e0b"
+    }
+  },
+  "phases": [
+    {
+      "id": 1,
+      "name": "Setup & Base Components",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "1.1",
+          "task": "Setup Tailwind with Skeet color palette",
+          "file": "tailwind.config.ts",
+          "status": "pending"
+        },
+        {
+          "id": "1.2",
+          "task": "Create global CSS variables",
+          "file": "src/app/globals.css",
+          "status": "pending"
+        },
+        {
+          "id": "1.3",
+          "task": "Create reusable Button component",
+          "file": "src/components/ui/Button.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "1.4",
+          "task": "Create reusable Card component",
+          "file": "src/components/ui/Card.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "1.5",
+          "task": "Create reusable Input component",
+          "file": "src/components/ui/Input.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "1.6",
+          "task": "Create Icon component (Lucide icons)",
+          "file": "src/components/ui/Icon.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "1.7",
+          "task": "Create Badge component",
+          "file": "src/components/ui/Badge.tsx",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Layout Components",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "2.1",
+          "task": "Create Navbar component with logo & nav links",
+          "file": "src/components/layout/Navbar.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "2.2",
+          "task": "Create Footer component",
+          "file": "src/components/layout/Footer.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "2.3",
+          "task": "Create Container wrapper component",
+          "file": "src/components/layout/Container.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "2.4",
+          "task": "Create Section component for page sections",
+          "file": "src/components/layout/Section.tsx",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Homepage Sections",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "3.1",
+          "task": "Create Hero section with logo & tagline",
+          "file": "src/components/sections/Hero.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "3.2",
+          "task": "Create Features section (6 feature cards like Chiyo)",
+          "file": "src/components/sections/Features.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "3.3",
+          "task": "Create FAQ section with accordion",
+          "file": "src/components/sections/FAQ.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "3.4",
+          "task": "Create Games section (supported games)",
+          "file": "src/components/sections/Games.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "3.5",
+          "task": "Assemble homepage",
+          "file": "src/app/page.tsx",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Discord OAuth Integration",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "4.1",
+          "task": "Setup NextAuth with Discord provider",
+          "file": "src/lib/auth.ts",
+          "status": "pending"
+        },
+        {
+          "id": "4.2",
+          "task": "Create auth API route",
+          "file": "src/app/api/auth/[...nextauth]/route.ts",
+          "status": "pending"
+        },
+        {
+          "id": "4.3",
+          "task": "Create SessionProvider wrapper",
+          "file": "src/components/providers/SessionProvider.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "4.4",
+          "task": "Create login/logout buttons in Navbar",
+          "file": "src/components/layout/Navbar.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "4.5",
+          "task": "Create user avatar dropdown",
+          "file": "src/components/ui/UserMenu.tsx",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Dashboard & Key Sync",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "5.1",
+          "task": "Create Dashboard page layout",
+          "file": "src/app/dashboard/page.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "5.2",
+          "task": "Create MyKeys component (show user's keys)",
+          "file": "src/components/dashboard/MyKeys.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "5.3",
+          "task": "Create KeyCard component",
+          "file": "src/components/dashboard/KeyCard.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "5.4",
+          "task": "Create API route to fetch user keys by Discord ID",
+          "file": "src/app/api/user/keys/route.ts",
+          "status": "pending"
+        },
+        {
+          "id": "5.5",
+          "task": "Create usage stats component",
+          "file": "src/components/dashboard/UsageStats.tsx",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Additional Pages",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "6.1",
+          "task": "Create Scripts page (list supported games)",
+          "file": "src/app/scripts/page.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "6.2",
+          "task": "Create Get Key page",
+          "file": "src/app/get-key/page.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "6.3",
+          "task": "Create Premium page",
+          "file": "src/app/premium/page.tsx",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Hidden Admin Panel",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "7.1",
+          "task": "Create hidden admin button (keyboard shortcut or secret click)",
+          "file": "src/components/admin/AdminTrigger.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "7.2",
+          "task": "Create admin panel layout",
+          "file": "src/app/admin/page.tsx",
+          "status": "pending"
+        },
+        {
+          "id": "7.3",
+          "task": "Create admin authentication check",
+          "file": "src/lib/admin.ts",
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "toInstall": [
+      "next-auth",
+      "lucide-react",
+      "@headlessui/react"
+    ]
+  },
+  "discordOAuth": {
+    "requiredEnvVars": [
+      "DISCORD_CLIENT_ID",
+      "DISCORD_CLIENT_SECRET",
+      "NEXTAUTH_SECRET",
+      "NEXTAUTH_URL"
+    ],
+    "scopes": ["identify", "email", "guilds"],
+    "callbackUrl": "/api/auth/callback/discord"
+  }
+}
