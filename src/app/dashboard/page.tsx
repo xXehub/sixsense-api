@@ -4,10 +4,13 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Container } from '@/components/layout/Container';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageBackground } from '@/components/ui/PageBackground';
+import { useToast } from '@/components/ui/Toast';
 import { 
   Key, 
   Shield, 
@@ -99,10 +102,14 @@ export default function DashboardPage() {
     }
   };
 
-  const copyToClipboard = async (key: string) => {
-    await navigator.clipboard.writeText(key);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(text);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const formatDate = (dateString: string | null) => {
@@ -139,7 +146,8 @@ export default function DashboardPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
+        <PageBackground variant="subtle" />
+        <div className="flex flex-col items-center gap-4 relative z-10">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
           <p className="text-muted">Loading dashboard...</p>
         </div>
@@ -152,8 +160,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
-      <Container>
+    <div className="min-h-screen bg-background pt-24 pb-16 relative">
+      <PageBackground variant="subtle" />
+      <Container className="relative z-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
           <div className="flex items-center gap-4">

@@ -17,7 +17,6 @@ import {
   MessageCircle,
   LogIn,
   Loader2,
-  LayoutDashboard,
 } from 'lucide-react';
 
 const navLinks = [
@@ -25,10 +24,6 @@ const navLinks = [
   { href: '/get-key', label: 'Get Key', icon: Key },
   { href: '/scripts', label: 'Scripts', icon: Code },
   { href: '/premium', label: 'Premium', icon: Crown },
-];
-
-const authNavLinks = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ];
 
 export function Navbar() {
@@ -54,28 +49,6 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                    transition-all duration-150
-                    ${isActive 
-                      ? 'text-[var(--primary)] bg-[var(--primary)]/10' 
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--background-card)]'
-                    }
-                  `}
-                >
-                  <Icon className="w-4 h-4" />
-                  {link.label}
-                </Link>
-              );
-            })}
-            {/* Auth-only links */}
-            {session && authNavLinks.map((link) => {
               const isActive = pathname === link.href;
               const Icon = link.icon;
               return (
@@ -141,29 +114,6 @@ export function Navbar() {
           <div className="md:hidden py-4 border-t border-[var(--border)]">
             <div className="flex flex-col gap-2">
               {navLinks.map((link) => {
-                const isActive = pathname === link.href;
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`
-                      flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
-                      transition-all duration-150
-                      ${isActive 
-                        ? 'text-[var(--primary)] bg-[var(--primary)]/10' 
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--background-card)]'
-                      }
-                    `}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {link.label}
-                  </Link>
-                );
-              })}
-              {/* Auth-only mobile links */}
-              {session && authNavLinks.map((link) => {
                 const isActive = pathname === link.href;
                 const Icon = link.icon;
                 return (

@@ -2,7 +2,7 @@
 
 import { HTMLAttributes, forwardRef } from 'react';
 
-type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'error' | 'outline';
+type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'outline';
 type BadgeSize = 'sm' | 'md' | 'lg';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -15,6 +15,7 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const variantStyles: Record<BadgeVariant, string> = {
   default: 'bg-[var(--background-elevated)] text-[var(--text-secondary)] border border-[var(--border)]',
   primary: 'bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30',
+  secondary: 'bg-[var(--background-card)] text-[var(--text-secondary)] border border-[var(--border)]',
   success: 'bg-green-500/10 text-green-400 border border-green-500/30',
   warning: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30',
   error: 'bg-red-500/10 text-red-400 border border-red-500/30',
@@ -30,6 +31,7 @@ const sizeStyles: Record<BadgeSize, string> = {
 const dotColors: Record<BadgeVariant, string> = {
   default: 'bg-[var(--text-muted)]',
   primary: 'bg-[var(--primary)]',
+  secondary: 'bg-[var(--text-secondary)]',
   success: 'bg-green-400',
   warning: 'bg-yellow-400',
   error: 'bg-red-400',

@@ -109,6 +109,70 @@ body {
   text-shadow: 0 0 20px var(--primary-glow), 0 0 40px var(--primary-glow);
 }
 
+/* Premium Golden Glow Effect */
+.glow-premium {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.25), 0 0 40px rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.5) !important;
+}
+
+.glow-premium:hover {
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.35), 0 0 60px rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.7) !important;
+}
+
+.glow-premium-text {
+  text-shadow: 0 0 20px rgba(245, 158, 11, 0.5), 0 0 40px rgba(245, 158, 11, 0.3);
+}
+
+/* Premium Gradient Background */
+.bg-premium-gradient {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(234, 179, 8, 0.05) 100%);
+}
+
+/* Premium Ring */
+.ring-premium {
+  --tw-ring-color: rgba(245, 158, 11, 0.5);
+}
+
+/* Premium Badge Shine Animation - Slower for better effect */
+@keyframes premium-shine {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.premium-shine {
+  background: linear-gradient(
+    90deg, 
+    transparent 0%, 
+    rgba(245, 158, 11, 0.2) 50%, 
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: premium-shine 6s ease-in-out infinite;
+}
+
+/* Provider Brand Colors */
+.glow-linkvertise {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.25);
+}
+.glow-linkvertise:hover {
+  box-shadow: 0 0 30px rgba(249, 115, 22, 0.4);
+}
+
+.glow-lootlabs {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
+}
+.glow-lootlabs:hover {
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.4);
+}
+
+.glow-workink {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+}
+.glow-workink:hover {
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+}
+
 /* Card Hover Animation */
 .card-hover {
   transition: all var(--transition);

@@ -1,20 +1,37 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { supabase } from '@/lib/supabase';
 import { generateKey, errorResponse, successResponse } from '@/lib/utils';
 
-// Simple API key auth for admin endpoints
-function validateAdminAuth(request: NextRequest): boolean {
+// Support both API key auth and session auth
+async function validateAuth(request: NextRequest): Promise<{ valid: boolean; discordId?: string; username?: string }> {
+  // Check API key first (for external/bot access)
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader) return false;
+  if (authHeader) {
+    const apiKey = authHeader.replace('Bearer ', '');
+    if (apiKey === process.env.API_SECRET_KEY) {
+      return { valid: true, discordId: 'API', username: 'API' };
+    }
+  }
   
-  const apiKey = authHeader.replace('Bearer ', '');
-  return apiKey === process.env.API_SECRET_KEY;
+  // Check session auth (for web panel)
+  const session = await getServerSession(authOptions);
+  const discordId = session?.user?.id || (session?.user as { discordId?: string })?.discordId;
+  
+  if (isAdmin(discordId)) {
+    return { valid: true, discordId, username: session?.user?.name || undefined };
+  }
+  
+  return { valid: false };
 }
 
 // GET - List all keys
 export async function GET(request: NextRequest) {
-  if (!validateAdminAuth(request)) {
-    return errorResponse('UNAUTHORIZED', 'Invalid API key', 401);
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -45,8 +62,9 @@ export async function GET(request: NextRequest) {
 
 // POST - Generate new key
 export async function POST(request: NextRequest) {
-  if (!validateAdminAuth(request)) {
-    return errorResponse('UNAUTHORIZED', 'Invalid API key', 401);
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -127,7 +145,8 @@ export async function POST(request: NextRequest) {
 
     // Log admin action
     await supabase.from('admin_logs').insert({
-      admin_discord_id: created_by || 'API',
+      admin_discord_id: auth.discordId || created_by || 'API',
+      admin_username: auth.username,
       action: 'generate_key',
       target_type: 'key',
       target_id: newKey.id,

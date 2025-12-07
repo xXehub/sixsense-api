@@ -5,6 +5,7 @@ import { Container } from '@/components/layout/Container';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageBackground } from '@/components/ui/PageBackground';
 import { 
   Crown, 
   Check, 
@@ -131,8 +132,9 @@ export default function PremiumPage() {
   const [selectedPlan, setSelectedPlan] = useState('premium');
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
-      <Container>
+    <div className="min-h-screen bg-background pt-24 pb-16 relative">
+      <PageBackground variant="subtle" />
+      <Container className="relative z-10">
         {/* Header */}
         <div className="text-center mb-16">
           <Badge variant="warning" className="mb-4 gap-1">
@@ -152,11 +154,15 @@ export default function PremiumPage() {
           {plans.map((plan) => (
             <Card 
               key={plan.id}
-              variant={plan.highlight ? 'glow' : 'default'}
-              className={`relative overflow-hidden ${plan.highlight ? 'ring-2 ring-primary md:scale-105' : ''}`}
+              variant={plan.highlight ? 'default' : 'default'}
+              className={`relative overflow-hidden transition-all duration-300 ${
+                plan.highlight 
+                  ? 'glow-premium md:scale-105 bg-premium-gradient' 
+                  : 'hover:border-[var(--border-hover)]'
+              }`}
             >
               {plan.highlight && (
-                <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-primary to-green-400 py-2 text-center">
+                <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-500 to-yellow-400 py-2 text-center">
                   <span className="text-sm font-semibold text-background flex items-center justify-center gap-1">
                     <Sparkles className="w-4 h-4" /> BEST VALUE
                   </span>
@@ -166,7 +172,7 @@ export default function PremiumPage() {
                 <div className="mb-6">
                   <h3 className="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-3xl font-bold ${plan.highlight ? 'text-primary' : 'text-foreground'}`}>
+                    <span className={`text-3xl font-bold ${plan.highlight ? 'text-amber-400 glow-premium-text' : 'text-foreground'}`}>
                       {plan.price}
                     </span>
                     <span className="text-muted text-sm">{plan.period}</span>

@@ -5,12 +5,14 @@ import { Container } from '@/components/layout/Container';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageBackground } from '@/components/ui/PageBackground';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { useToast } from '@/components/ui/Toast';
 import { 
   Gamepad2, 
   Play, 
   Users, 
   Clock, 
-  Search,
   Filter,
   Loader2,
   ExternalLink,
@@ -34,13 +36,22 @@ interface Game {
 
 export default function ScriptsPage() {
   const [games, setGames] = useState<Game[]>([]);
+  const [thumbnails, setThumbnails] = useState<Record<number, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   useEffect(() => {
     fetchGames();
   }, []);
+
+  // Fetch Roblox thumbnails after games are loaded
+  useEffect(() => {
+    if (games.length > 0) {
+      fetchThumbnails();
+    }
+  }, [games]);
 
   const fetchGames = async () => {
     try {
@@ -56,11 +67,33 @@ export default function ScriptsPage() {
     }
   };
 
+  const fetchThumbnails = async () => {
+    try {
+      const placeIds = games.map(g => g.place_id);
+      const response = await fetch('/api/roblox/thumbnail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeIds })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setThumbnails(data.thumbnails || {});
+      }
+    } catch (error) {
+      console.error('Failed to fetch thumbnails:', error);
+    }
+  };
+
   const copyLoadstring = async (placeId: number) => {
-    const loadstring = `loadstring(game:HttpGet("https://sixsense-api.vercel.app/api/loader/${placeId}"))()`;
-    await navigator.clipboard.writeText(loadstring);
-    setCopiedId(placeId.toString());
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      const loadstring = `loadstring(game:HttpGet("https://sixsense-api.vercel.app/api/loader/${placeId}"))()`;
+      await navigator.clipboard.writeText(loadstring);
+      setCopiedId(placeId.toString());
+      addToast('success', 'Copied!', 'Loadstring copied to clipboard');
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      addToast('error', 'Failed to copy', 'Please try again');
+    }
   };
 
   const filteredGames = games.filter(game =>
@@ -85,9 +118,15 @@ export default function ScriptsPage() {
     return num.toString();
   };
 
+  // Get thumbnail: prioritize Roblox API, then database, then fallback
+  const getGameThumbnail = (game: Game): string | null => {
+    return thumbnails[game.place_id] || game.thumbnail_url || null;
+  };
+
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
-      <Container>
+    <div className="min-h-screen bg-background pt-24 pb-16 relative">
+      <PageBackground variant="subtle" />
+      <Container className="relative z-10">
         {/* Header */}
         <div className="text-center mb-12">
           <Badge variant="primary" className="mb-4">SCRIPTS</Badge>
@@ -102,14 +141,12 @@ export default function ScriptsPage() {
 
         {/* Search & Filter */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
-            <input
-              type="text"
+          <div className="flex-1">
+            <SearchInput
               placeholder="Search games..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-background-card border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              size="lg"
             />
           </div>
           <Button variant="outline" leftIcon={<Filter className="w-4 h-4" />}>
@@ -119,13 +156,13 @@ export default function ScriptsPage() {
 
         {/* Stats Bar */}
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <Card variant="default">
+          <Card variant="default" hover>
             <CardContent className="py-4 text-center">
               <p className="text-2xl font-bold text-primary">{games.length}</p>
               <p className="text-sm text-muted">Supported Games</p>
             </CardContent>
           </Card>
-          <Card variant="default">
+          <Card variant="default" hover>
             <CardContent className="py-4 text-center">
               <p className="text-2xl font-bold text-primary">
                 {formatExecutions(games.reduce((sum, g) => sum + (g.total_executions || 0), 0))}
@@ -133,7 +170,7 @@ export default function ScriptsPage() {
               <p className="text-sm text-muted">Total Executions</p>
             </CardContent>
           </Card>
-          <Card variant="default">
+          <Card variant="default" hover>
             <CardContent className="py-4 text-center">
               <p className="text-2xl font-bold text-green-500">100%</p>
               <p className="text-sm text-muted">Undetected</p>
@@ -158,18 +195,20 @@ export default function ScriptsPage() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredGames.map((game) => (
+            {filteredGames.map((game) => {
+              const thumbnail = getGameThumbnail(game);
+              return (
               <Card key={game.id} variant="default" hover className="overflow-hidden group">
-                {/* Thumbnail */}
+                {/* Thumbnail from Roblox API */}
                 <div className="relative h-40 bg-background-lighter overflow-hidden">
-                  {game.thumbnail_url ? (
+                  {thumbnail ? (
                     <img
-                      src={game.thumbnail_url}
+                      src={thumbnail}
                       alt={game.game_name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-background-card to-background-elevated">
                       <Gamepad2 className="w-16 h-16 text-muted" />
                     </div>
                   )}
@@ -177,7 +216,7 @@ export default function ScriptsPage() {
                     {getTierBadge(game.min_key_tier)}
                   </div>
                   <div className="absolute bottom-3 left-3">
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-xs backdrop-blur-sm bg-background/80">
                       v{game.script_version}
                     </Badge>
                   </div>
@@ -224,7 +263,8 @@ export default function ScriptsPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
 

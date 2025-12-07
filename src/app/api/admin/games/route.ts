@@ -1,11 +1,38 @@
-import { NextRequest } from 'next/server';
-import { supabase, SupportedGame } from '@/lib/supabase';
-import { errorResponse, successResponse, verifyAdminAuth } from '@/lib/utils';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
+import { supabase } from '@/lib/supabase';
+import { errorResponse, successResponse } from '@/lib/utils';
+
+// Support both API key auth and session auth
+async function validateAuth(request: NextRequest): Promise<{ valid: boolean; discordId?: string; username?: string }> {
+  // Check API key first (for external/bot access)
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader) {
+    const apiKey = authHeader.replace('Bearer ', '');
+    if (apiKey === process.env.API_SECRET_KEY) {
+      return { valid: true, discordId: 'API', username: 'API' };
+    }
+  }
+  
+  // Check session auth (for web panel)
+  const session = await getServerSession(authOptions);
+  const discordId = session?.user?.id || (session?.user as { discordId?: string })?.discordId;
+  
+  if (isAdmin(discordId)) {
+    return { valid: true, discordId, username: session?.user?.name || undefined };
+  }
+  
+  return { valid: false };
+}
 
 // GET /api/admin/games - List all supported games
 export async function GET(request: NextRequest) {
-  const authError = verifyAdminAuth(request);
-  if (authError) return authError;
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const { searchParams } = new URL(request.url);
@@ -38,8 +65,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/games - Add a new supported game
 export async function POST(request: NextRequest) {
-  const authError = verifyAdminAuth(request);
-  if (authError) return authError;
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const body = await request.json();
@@ -91,8 +120,10 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/admin/games - Remove a supported game
 export async function DELETE(request: NextRequest) {
-  const authError = verifyAdminAuth(request);
-  if (authError) return authError;
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const { searchParams } = new URL(request.url);
@@ -125,8 +156,10 @@ export async function DELETE(request: NextRequest) {
 
 // PATCH /api/admin/games - Update a supported game
 export async function PATCH(request: NextRequest) {
-  const authError = verifyAdminAuth(request);
-  if (authError) return authError;
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const body = await request.json();

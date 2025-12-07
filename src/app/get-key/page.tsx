@@ -6,6 +6,8 @@ import { Container } from '@/components/layout/Container';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageBackground } from '@/components/ui/PageBackground';
+import { useToast } from '@/components/ui/Toast';
 import { 
   Key, 
   Shield, 
@@ -15,69 +17,76 @@ import {
   LogIn,
   ExternalLink,
   Copy,
-  Check,
   Loader2,
   AlertCircle,
-  Sparkles
+  Crown,
+  Zap,
+  Link2,
+  Gift,
+  Star
 } from 'lucide-react';
 
-const keyPlans = [
+// Free key providers with brand colors
+const freeProviders = [
   {
-    id: 'daily',
-    name: 'Daily Key',
-    duration: '24 Hours',
-    description: 'Perfect for trying out our scripts',
-    features: ['All basic scripts', 'HWID lock', '1 HWID reset'],
-    price: 'Free',
-    linkvertise: true,
-    highlight: false
+    id: 'linkvertise',
+    name: 'Linkvertise',
+    description: 'Complete quick steps to get your key',
+    color: 'linkvertise', // Orange brand color
+    icon: Link2,
+    url: 'https://link-target.net/YOUR_LINKVERTISE_ID',
+    duration: '~2 minutes'
   },
   {
-    id: 'weekly',
-    name: 'Weekly Key',
-    duration: '7 Days',
-    description: 'Great for regular users',
-    features: ['All basic scripts', 'HWID lock', '3 HWID resets', 'Priority support'],
-    price: 'Free',
-    linkvertise: true,
-    highlight: true
+    id: 'lootlabs',
+    name: 'Loot Labs',
+    description: 'Alternative method with fewer steps',
+    color: 'lootlabs', // Purple brand color
+    icon: Gift,
+    url: 'https://lootlabs.gg/YOUR_LOOTLABS_ID',
+    duration: '~1 minute'
   },
   {
-    id: 'lifetime',
-    name: 'Lifetime Key',
-    duration: 'Forever',
-    description: 'Best value for power users',
-    features: ['All premium scripts', 'HWID lock', 'Unlimited resets', 'VIP support', 'Early access'],
-    price: 'Premium',
-    linkvertise: false,
-    highlight: false
+    id: 'workink',
+    name: 'Work.ink',
+    description: 'Simple and fast verification',
+    color: 'workink', // Green brand color
+    icon: Zap,
+    url: 'https://work.ink/YOUR_WORKINK_ID',
+    duration: '~1 minute'
   }
 ];
 
 export default function GetKeyPage() {
   const { data: session, status } = useSession();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const { addToast } = useToast();
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [step, setStep] = useState(1);
 
-  const handleGetKey = async (planId: string) => {
-    const plan = keyPlans.find(p => p.id === planId);
-    if (!plan) return;
+  const handlePremium = () => {
+    window.location.href = '/premium';
+  };
 
-    if (plan.linkvertise) {
-      // For free plans, redirect to linkvertise
-      setSelectedPlan(planId);
-      setStep(2);
-    } else {
-      // For premium, redirect to premium page
-      window.location.href = '/premium';
+  const handleFreeProvider = (providerId: string) => {
+    if (!session) {
+      addToast('warning', 'Login Required', 'Please login with Discord first');
+      return;
+    }
+    setSelectedProvider(providerId);
+    setStep(2);
+  };
+
+  const openProviderLink = () => {
+    const provider = freeProviders.find(p => p.id === selectedProvider);
+    if (provider) {
+      window.open(provider.url, '_blank');
     }
   };
 
-  const completeLinkvertise = async () => {
+  const completeVerification = async () => {
     if (!session) {
       signIn('discord');
       return;
@@ -91,8 +100,9 @@ export default function GetKeyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          key_type: selectedPlan,
-          discord_id: session.user?.id || session.user?.discordId
+          key_type: 'weekly',
+          discord_id: session.user?.id || session.user?.discordId,
+          provider: selectedProvider
         })
       });
 
@@ -104,8 +114,10 @@ export default function GetKeyPage() {
 
       setGeneratedKey(data.key || data.data?.key);
       setStep(3);
+      addToast('success', 'Key Generated!', 'Your key has been created successfully');
     } catch (err: any) {
       setError(err.message);
+      addToast('error', 'Error', err.message);
     } finally {
       setLoading(false);
     }
@@ -114,20 +126,38 @@ export default function GetKeyPage() {
   const copyKey = async () => {
     if (!generatedKey) return;
     await navigator.clipboard.writeText(generatedKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    addToast('success', 'Copied!', 'Key copied to clipboard');
   };
 
   const resetFlow = () => {
-    setSelectedPlan(null);
+    setSelectedProvider(null);
     setGeneratedKey(null);
     setStep(1);
     setError(null);
   };
 
+  const getProviderColorClass = (color: string) => {
+    switch (color) {
+      case 'linkvertise': return 'text-orange-500 bg-orange-500/10 border-orange-500/30'; // Linkvertise orange
+      case 'lootlabs': return 'text-violet-500 bg-violet-500/10 border-violet-500/30'; // Lootlabs purple
+      case 'workink': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'; // Workink green
+      default: return 'text-primary bg-primary/10 border-primary/30';
+    }
+  };
+
+  const getProviderHoverClass = (color: string) => {
+    switch (color) {
+      case 'linkvertise': return 'hover:border-orange-500 hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]';
+      case 'lootlabs': return 'hover:border-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]';
+      case 'workink': return 'hover:border-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]';
+      default: return 'hover:border-[var(--primary)]';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
-      <Container>
+    <div className="min-h-screen bg-background pt-24 pb-16 relative">
+      <PageBackground variant="subtle" />
+      <Container className="relative z-10">
         {/* Header */}
         <div className="text-center mb-12">
           <Badge variant="primary" className="mb-4">GET KEY</Badge>
@@ -135,7 +165,7 @@ export default function GetKeyPage() {
             Get Your <span className="text-primary">Access Key</span>
           </h1>
           <p className="text-muted text-lg max-w-2xl mx-auto">
-            Choose your plan and get instant access to all sixsense scripts.
+            Choose Premium for lifetime access or get free keys through our partners.
             Keys are bound to your HWID for security.
           </p>
         </div>
@@ -145,85 +175,163 @@ export default function GetKeyPage() {
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center gap-2">
               <div className={`
-                w-10 h-10 rounded-full flex items-center justify-center font-semibold
-                ${step >= s ? 'bg-primary text-background' : 'bg-background-card text-muted'}
+                w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border-2
+                ${step > s 
+                  ? 'bg-primary/20 border-primary text-primary' 
+                  : step === s 
+                    ? 'bg-primary border-primary text-background shadow-[0_0_15px_rgba(74,222,128,0.4)]' 
+                    : 'bg-background-card/50 border-border text-muted'
+                }
               `}>
                 {step > s ? <CheckCircle2 className="w-5 h-5" /> : s}
               </div>
               {s < 3 && (
-                <div className={`w-12 h-0.5 ${step > s ? 'bg-primary' : 'bg-border'}`} />
+                <div className={`w-12 h-0.5 transition-colors duration-300 ${step > s ? 'bg-primary' : 'bg-border'}`} />
               )}
             </div>
           ))}
         </div>
 
-        {/* Step Content */}
+        {/* Step 1: Choose Method */}
         {step === 1 && (
-          <>
-            {/* Key Plans */}
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              {keyPlans.map((plan) => (
-                <Card 
-                  key={plan.id}
-                  variant={plan.highlight ? 'glow' : 'default'}
-                  className={`relative overflow-hidden ${plan.highlight ? 'ring-2 ring-primary' : ''}`}
-                >
-                  {plan.highlight && (
-                    <div className="absolute top-0 left-0 right-0 bg-primary py-1 text-center">
-                      <span className="text-xs font-semibold text-background">MOST POPULAR</span>
+          <div className="space-y-8">
+            {/* Premium Option - Highlighted */}
+            <div className="max-w-4xl mx-auto">
+              <Card 
+                variant="default"
+                className="glow-premium bg-premium-gradient overflow-hidden relative"
+              >
+                {/* Premium Shine Effect */}
+                <div className="absolute inset-0 premium-shine pointer-events-none" />
+                
+                <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-amber-500 to-yellow-400 py-1.5 text-center">
+                  <span className="text-xs font-semibold text-background flex items-center justify-center gap-1">
+                    <Star className="w-3 h-3" /> RECOMMENDED
+                  </span>
+                </div>
+
+                <CardContent className="p-6 pt-10 relative">
+                  <div className="flex flex-col md:flex-row items-center gap-5">
+                    {/* Icon */}
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                        <Crown className="w-8 h-8 text-background" />
+                      </div>
                     </div>
-                  )}
-                  <CardContent className={`p-6 ${plan.highlight ? 'pt-10' : ''}`}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`p-3 rounded-lg ${plan.highlight ? 'bg-primary/20' : 'bg-background-lighter'}`}>
-                        {plan.id === 'lifetime' ? (
-                          <Sparkles className="w-6 h-6 text-yellow-500" />
-                        ) : (
-                          <Key className="w-6 h-6 text-primary" />
-                        )}
+
+                    {/* Content */}
+                    <div className="flex-1 text-center md:text-left">
+                      <div className="flex items-center gap-2 justify-center md:justify-start mb-1">
+                        <Badge variant="warning" size="sm">LIFETIME ACCESS</Badge>
+                      </div>
+                      <h2 className="text-xl font-bold text-foreground mb-1">
+                        Go <span className="text-amber-400 glow-premium-text">Premium</span>
+                      </h2>
+                      <p className="text-muted text-sm mb-3">
+                        Pay once, use forever. All premium scripts, unlimited HWID resets, priority support.
+                      </p>
+                      
+                      <div className="flex flex-wrap items-center gap-3 mb-3 justify-center md:justify-start">
+                        <span className="flex items-center gap-1 text-xs text-foreground">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> All Scripts
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-foreground">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> Unlimited Resets
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-foreground">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> Priority Support
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Price & Button */}
+                    <div className="flex flex-col items-center md:items-end gap-2 flex-shrink-0">
+                      <div className="text-2xl font-bold text-amber-400">
+                        Rp 25.000
+                        <span className="text-sm font-normal text-muted">/lifetime</span>
+                      </div>
+                      <Button
+                        variant="primary"
+                        onClick={handlePremium}
+                        className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-background border-0"
+                      >
+                        Get Premium
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 max-w-4xl mx-auto">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-muted text-sm">Or get a free key</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* Free Options */}
+            <div className="grid md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              {freeProviders.map((provider) => (
+                <Card 
+                  key={provider.id}
+                  variant="default"
+                  className={`group cursor-pointer transition-all duration-300 hover:-translate-y-1 ${getProviderHoverClass(provider.color)}`}
+                  onClick={() => handleFreeProvider(provider.id)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`p-2.5 rounded-lg border ${getProviderColorClass(provider.color)}`}>
+                        <provider.icon className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground">{plan.name}</h3>
-                        <p className="text-sm text-muted">{plan.duration}</p>
+                        <h3 className="font-semibold text-foreground">{provider.name}</h3>
+                        <p className="text-xs text-muted">{provider.duration}</p>
                       </div>
                     </div>
-
-                    <p className="text-muted text-sm mb-4">{plan.description}</p>
-
-                    <ul className="space-y-2 mb-6">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-center gap-2 text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                          <span className="text-foreground">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="mb-4">
-                      <span className={`text-2xl font-bold ${plan.price === 'Free' ? 'text-primary' : 'text-yellow-500'}`}>
-                        {plan.price}
-                      </span>
-                      {plan.linkvertise && (
-                        <span className="text-sm text-muted ml-2">via Linkvertise</span>
-                      )}
+                    <p className="text-sm text-muted mb-4">{provider.description}</p>
+                    
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary">Free</Badge>
+                      <ArrowRight className={`w-4 h-4 text-muted transition-colors ${
+                        provider.color === 'linkvertise' ? 'group-hover:text-orange-500' :
+                        provider.color === 'lootlabs' ? 'group-hover:text-violet-500' :
+                        provider.color === 'workink' ? 'group-hover:text-emerald-500' :
+                        'group-hover:text-primary'
+                      }`} />
                     </div>
-
-                    <Button
-                      variant={plan.highlight ? 'primary' : 'outline'}
-                      fullWidth
-                      onClick={() => handleGetKey(plan.id)}
-                    >
-                      {plan.linkvertise ? 'Get Free Key' : 'Go Premium'}
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
-          </>
+
+            {/* Login Reminder */}
+            {!session && (
+              <div className="max-w-xl mx-auto">
+                <Card variant="default">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                    <p className="text-sm text-muted flex-1">
+                      Login with Discord to get your key linked to your account.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => signIn('discord')}
+                      leftIcon={<LogIn className="w-4 h-4" />}
+                    >
+                      Login
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         )}
 
-        {step === 2 && (
+        {/* Step 2: Complete Verification */}
+        {step === 2 && selectedProvider && (
           <div className="max-w-lg mx-auto">
             <Card variant="glow">
               <CardContent className="p-8 text-center">
@@ -231,57 +339,41 @@ export default function GetKeyPage() {
                   <ExternalLink className="w-8 h-8 text-primary" />
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">
-                  Complete Linkvertise
+                  Complete {freeProviders.find(p => p.id === selectedProvider)?.name}
                 </h2>
                 <p className="text-muted mb-6">
-                  Complete the Linkvertise verification to get your {selectedPlan} key.
+                  Complete the verification to get your weekly key.
                   This helps support our development!
                 </p>
 
-                {!session ? (
-                  <div className="space-y-4">
-                    <p className="text-sm text-yellow-500">
-                      Please login with Discord first to link your key.
-                    </p>
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      onClick={() => signIn('discord')}
-                      leftIcon={<LogIn className="w-4 h-4" />}
-                    >
-                      Login with Discord
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      onClick={() => window.open('https://link-target.net/YOUR_LINKVERTISE_ID', '_blank')}
-                      leftIcon={<ExternalLink className="w-4 h-4" />}
-                    >
-                      Open Linkvertise
-                    </Button>
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      onClick={completeLinkvertise}
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Generating Key...
-                        </>
-                      ) : (
-                        <>
-                          I've Completed Linkvertise
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
+                <div className="space-y-4">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={openProviderLink}
+                    leftIcon={<ExternalLink className="w-4 h-4" />}
+                  >
+                    Open {freeProviders.find(p => p.id === selectedProvider)?.name}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    onClick={completeVerification}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating Key...
+                      </>
+                    ) : (
+                      <>
+                        I've Completed Verification
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </div>
 
                 {error && (
                   <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
@@ -292,15 +384,16 @@ export default function GetKeyPage() {
 
                 <button 
                   onClick={resetFlow}
-                  className="mt-6 text-sm text-muted hover:text-foreground"
+                  className="mt-6 text-sm text-muted hover:text-foreground transition-colors"
                 >
-                  ← Back to plans
+                  ← Back to options
                 </button>
               </CardContent>
             </Card>
           </div>
         )}
 
+        {/* Step 3: Key Generated */}
         {step === 3 && generatedKey && (
           <div className="max-w-lg mx-auto">
             <Card variant="glow">
@@ -324,12 +417,9 @@ export default function GetKeyPage() {
                     <button
                       onClick={copyKey}
                       className="p-2 hover:bg-background-card rounded transition-colors"
+                      title="Copy key"
                     >
-                      {copied ? (
-                        <Check className="w-5 h-5 text-green-500" />
-                      ) : (
-                        <Copy className="w-5 h-5 text-muted" />
-                      )}
+                      <Copy className="w-5 h-5 text-muted hover:text-foreground" />
                     </button>
                   </div>
                 </div>
@@ -356,8 +446,8 @@ export default function GetKeyPage() {
         )}
 
         {/* Info Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mt-12">
-          <Card variant="default">
+        {/* <div className="grid md:grid-cols-3 gap-6 mt-12">
+          <Card variant="default" hover>
             <CardContent className="p-6 flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Shield className="w-6 h-6 text-primary" />
@@ -370,7 +460,7 @@ export default function GetKeyPage() {
               </div>
             </CardContent>
           </Card>
-          <Card variant="default">
+          <Card variant="default" hover>
             <CardContent className="p-6 flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Clock className="w-6 h-6 text-primary" />
@@ -383,7 +473,7 @@ export default function GetKeyPage() {
               </div>
             </CardContent>
           </Card>
-          <Card variant="default">
+          <Card variant="default" hover>
             <CardContent className="p-6 flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Key className="w-6 h-6 text-primary" />
@@ -396,7 +486,7 @@ export default function GetKeyPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div> */}
       </Container>
     </div>
   );

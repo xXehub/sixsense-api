@@ -12,7 +12,9 @@ import {
   LayoutDashboard,
   ChevronDown,
   Crown,
+  Shield,
 } from 'lucide-react';
+import { ADMIN_DISCORD_IDS } from '@/lib/admin';
 
 export function UserMenu() {
   const { data: session, status } = useSession();
@@ -140,6 +142,16 @@ export function UserMenu() {
               <Key className="w-4 h-4" />
               My Keys
             </Link>
+            {user.discordId && ADMIN_DISCORD_IDS.includes(user.discordId) && (
+              <Link
+                href="/x-admin-panel"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-[var(--background-elevated)] transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                Admin Panel
+              </Link>
+            )}
             <Link
               href="/premium"
               onClick={() => setIsOpen(false)}

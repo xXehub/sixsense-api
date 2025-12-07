@@ -1,14 +1,30 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isAdmin } from '@/lib/admin';
 import { supabase } from '@/lib/supabase';
 import { errorResponse, successResponse } from '@/lib/utils';
 
-// Simple API key auth for admin endpoints
-function validateAdminAuth(request: NextRequest): boolean {
+// Support both API key auth and session auth
+async function validateAuth(request: NextRequest): Promise<{ valid: boolean; discordId?: string; username?: string }> {
+  // Check API key first (for external/bot access)
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader) return false;
+  if (authHeader) {
+    const apiKey = authHeader.replace('Bearer ', '');
+    if (apiKey === process.env.API_SECRET_KEY) {
+      return { valid: true, discordId: 'API', username: 'API' };
+    }
+  }
   
-  const apiKey = authHeader.replace('Bearer ', '');
-  return apiKey === process.env.API_SECRET_KEY;
+  // Check session auth (for web panel)
+  const session = await getServerSession(authOptions);
+  const discordId = session?.user?.id || (session?.user as { discordId?: string })?.discordId;
+  
+  if (isAdmin(discordId)) {
+    return { valid: true, discordId, username: session?.user?.name || undefined };
+  }
+  
+  return { valid: false };
 }
 
 // GET - Get single key details
@@ -16,8 +32,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!validateAdminAuth(request)) {
-    return errorResponse('UNAUTHORIZED', 'Invalid API key', 401);
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -55,14 +72,15 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!validateAdminAuth(request)) {
-    return errorResponse('UNAUTHORIZED', 'Invalid API key', 401);
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { action, admin_id } = body;
+    const { action } = body;
 
     // Find the key first
     const { data: existingKey, error: findError } = await supabase
@@ -80,6 +98,7 @@ export async function PATCH(
 
     switch (action) {
       case 'reset_hwid':
+      case 'reset-hwid':
         if (existingKey.hwid_resets_used >= existingKey.max_hwid_resets) {
           return errorResponse('MAX_RESETS', 'Maximum HWID resets reached', 400);
         }
@@ -90,6 +109,23 @@ export async function PATCH(
           hwid_resets_used: existingKey.hwid_resets_used + 1,
           last_hwid_reset: new Date().toISOString()
         };
+        logAction = 'reset_hwid';
+        break;
+
+      case 'toggle':
+        // Toggle active status
+        updateData = existingKey.is_active 
+          ? {
+              is_active: false,
+              deactivated_at: new Date().toISOString(),
+              deactivated_reason: 'Deactivated by admin'
+            }
+          : {
+              is_active: true,
+              deactivated_at: null,
+              deactivated_reason: null
+            };
+        logAction = existingKey.is_active ? 'deactivate' : 'activate';
         break;
 
       case 'deactivate':
@@ -131,8 +167,8 @@ export async function PATCH(
 
     // Log admin action
     await supabase.from('admin_logs').insert({
-      admin_discord_id: admin_id || 'API',
-      admin_username: body.admin_username,
+      admin_discord_id: auth.discordId || 'API',
+      admin_username: auth.username,
       action: logAction,
       target_type: 'key',
       target_id: id,
@@ -155,14 +191,13 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!validateAdminAuth(request)) {
-    return errorResponse('UNAUTHORIZED', 'Invalid API key', 401);
+  const auth = await validateAuth(request);
+  if (!auth.valid) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const adminId = searchParams.get('admin_id') || 'API';
 
     const { error } = await supabase
       .from('keys')
@@ -173,7 +208,8 @@ export async function DELETE(
 
     // Log admin action
     await supabase.from('admin_logs').insert({
-      admin_discord_id: adminId,
+      admin_discord_id: auth.discordId || 'API',
+      admin_username: auth.username,
       action: 'delete_key',
       target_type: 'key',
       target_id: id
