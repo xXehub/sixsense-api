@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sixsense API Tester</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: linear-gradient(135deg, #1a1a2e, #16213e); 
+            min-height: 100vh; 
+            padding: 20px;
+            color: #fff;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { 
+            text-align: center; 
+            margin-bottom: 30px;
+            color: #60cdff;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            color: #60cdff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+            font-size: 14px;
+        }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 14px;
+        }
+        .input-group textarea {
+            min-height: 100px;
+            font-family: monospace;
+        }
+        button {
+            background: #60cdff;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #4db8e8; transform: translateY(-2px); }
+        button:disabled { background: #555; cursor: not-allowed; transform: none; }
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .response.success { border-left: 4px solid #4ade80; }
+        .response.error { border-left: 4px solid #f87171; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+        .badge.post { background: #22c55e; color: #000; }
+        .badge.get { background: #3b82f6; color: #fff; }
+        .badge.patch { background: #f59e0b; color: #000; }
+        .badge.delete { background: #ef4444; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 sixsense API Tester</h1>
+        
+        <div class="grid">
+            <!-- Generate Key -->
+            <div class="card">
+                <h2><span class="badge post">POST</span> Generate Key</h2>
+                <div class="input-group">
+                    <label>Discord ID</label>
+                    <input type="text" id="gen-discord-id" placeholder="123456789012345678" value="123456789">
+                </div>
+                <div class="input-group">
+                    <label>Discord Username</label>
+                    <input type="text" id="gen-discord-username" placeholder="User#1234" value="TestUser">
+                </div>
+                <div class="input-group">
+                    <label>Key Type</label>
+                    <select id="gen-key-type">
+                        <option value="lifetime">Lifetime</option>
+                        <option value="monthly">Monthly (30 days)</option>
+                        <option value="weekly">Weekly (7 days)</option>
+                        <option value="daily">Daily (1 day)</option>
+                    </select>
+                </div>
+                <button onclick="generateKey()">Generate Key</button>
+                <div id="gen-response" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Validate Key -->
+            <div class="card">
+                <h2><span class="badge post">POST</span> Validate Key (Simulate Loader)</h2>
+                <div class="input-group">
+                    <label>Key</label>
+                    <input type="text" id="val-key" placeholder="SIX-XXXX-XXXX-XXXX">
+                </div>
+                <div class="input-group">
+                    <label>HWID (Device ID)</label>
+                    <input type="text" id="val-hwid" placeholder="TEST-HWID-12345" value="TEST-HWID-12345">
+                </div>
+                <div class="input-group">
+                    <label>Executor</label>
+                    <input type="text" id="val-executor" placeholder="Synapse X" value="API-Tester">
+                </div>
+                <button onclick="validateKey()">Validate Key</button>
+                <div id="val-response" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Get Script -->
+            <div class="card">
+                <h2><span class="badge post">POST</span> Get Script (with token)</h2>
+                <div class="input-group">
+                    <label>Script Token (from validation)</label>
+                    <input type="text" id="script-token" placeholder="Token from validate response">
+                </div>
+                <button onclick="getScript()">Get Script</button>
+                <div id="script-response" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Stats -->
+            <div class="card">
+                <h2><span class="badge get">GET</span> Public Stats</h2>
+                <button onclick="getStats()">Get Stats</button>
+                <div id="stats-response" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Reset HWID -->
+            <div class="card">
+                <h2><span class="badge patch">PATCH</span> Reset HWID</h2>
+                <div class="input-group">
+                    <label>Key ID (UUID from generate response)</label>
+                    <input type="text" id="reset-key-id" placeholder="uuid-here">
+                </div>
+                <button onclick="resetHWID()">Reset HWID</button>
+                <div id="reset-response" class="response" style="display:none;"></div>
+            </div>
+
+            <!-- Blacklist HWID -->
+            <div class="card">
+                <h2><span class="badge post">POST</span> Blacklist HWID</h2>
+                <div class="input-group">
+                    <label>HWID to Ban</label>
+                    <input type="text" id="ban-hwid" placeholder="HWID-TO-BAN">
+                </div>
+                <div class="input-group">
+                    <label>Reason</label>
+                    <input type="text" id="ban-reason" placeholder="Reason for ban" value="Testing ban system">
+                </div>
+                <button onclick="blacklistHWID()">Blacklist HWID</button>
+                <div id="ban-response" class="response" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        const ADMIN_KEY = 'sixsense-secret-key-change-this-in-production';
+
+        async function apiCall(endpoint, method, body, responseDiv, isAdmin = false) {
+            const div = document.getElementById(responseDiv);
+            div.style.display = 'block';
+            div.className = 'response';
+            div.textContent = 'Loading...';
+
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (isAdmin) {
+                    headers['Authorization'] = `Bearer ${ADMIN_KEY}`;
+                }
+
+                const response = await fetch(`${API_URL}${endpoint}`, {
+                    method,
+                    headers,
+                    body: body ? JSON.stringify(body) : undefined
+                });
+
+                const data = await response.json();
+                div.textContent = JSON.stringify(data, null, 2);
+                div.classList.add(data.success ? 'success' : 'error');
+                return data;
+            } catch (error) {
+                div.textContent = 'Error: ' + error.message;
+                div.classList.add('error');
+                return null;
+            }
+        }
+
+        async function generateKey() {
+            const keyTypeMap = {
+                'lifetime': { key_type: 'lifetime' },
+                'monthly': { key_type: 'monthly', duration_days: 30 },
+                'weekly': { key_type: 'weekly', duration_days: 7 },
+                'daily': { key_type: 'daily', duration_days: 1 }
+            };
+            const keyType = document.getElementById('gen-key-type').value;
+            
+            const data = await apiCall('/admin/keys', 'POST', {
+                discord_id: document.getElementById('gen-discord-id').value,
+                discord_username: document.getElementById('gen-discord-username').value,
+                ...keyTypeMap[keyType],
+                created_by: 'API-Tester'
+            }, 'gen-response', true);
+
+            // Auto-fill key in validate section
+            if (data?.key?.key_value) {
+                document.getElementById('val-key').value = data.key.key_value;
+                document.getElementById('reset-key-id').value = data.key.id;
+            }
+        }
+
+        async function validateKey() {
+            const data = await apiCall('/validate', 'POST', {
+                key: document.getElementById('val-key').value,
+                hwid: document.getElementById('val-hwid').value,
+                executor: document.getElementById('val-executor').value,
+                game_id: 123456789,
+                player_name: 'TestPlayer',
+                player_id: 987654321
+            }, 'val-response');
+
+            // Auto-fill token
+            if (data?.script_token) {
+                document.getElementById('script-token').value = data.script_token;
+            }
+        }
+
+        async function getScript() {
+            await apiCall('/script', 'POST', {
+                token: document.getElementById('script-token').value
+            }, 'script-response');
+        }
+
+        async function getStats() {
+            await apiCall('/stats', 'GET', null, 'stats-response');
+        }
+
+        async function resetHWID() {
+            const keyId = document.getElementById('reset-key-id').value;
+            await apiCall(`/admin/keys/${keyId}`, 'PATCH', {
+                action: 'reset_hwid',
+                admin_id: 'API-Tester'
+            }, 'reset-response', true);
+        }
+
+        async function blacklistHWID() {
+            await apiCall('/admin/blacklist', 'POST', {
+                type: 'hwid',
+                value: document.getElementById('ban-hwid').value,
+                reason: document.getElementById('ban-reason').value,
+                admin_id: 'API-Tester'
+            }, 'ban-response', true);
+        }
+    </script>
+</body>
+</html>
