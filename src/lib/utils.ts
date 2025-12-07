@@ -96,3 +96,24 @@ export function successResponse(data: object, status: number = 200): Response {
     { status }
   );
 }
+
+// Admin authentication helper
+export function verifyAdminAuth(request: Request): Response | null {
+  const authHeader = request.headers.get('authorization');
+  const apiKey = process.env.API_SECRET_KEY;
+
+  if (!apiKey) {
+    return errorResponse('CONFIG_ERROR', 'Server not properly configured', 500);
+  }
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return errorResponse('UNAUTHORIZED', 'Authorization header required', 401);
+  }
+
+  const providedKey = authHeader.replace('Bearer ', '');
+  if (providedKey !== apiKey) {
+    return errorResponse('FORBIDDEN', 'Invalid API key', 403);
+  }
+
+  return null; // Auth passed
+}

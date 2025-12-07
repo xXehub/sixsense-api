@@ -78,3 +78,19 @@ export interface BlacklistedHwid {
   added_by: string | null;
   added_at: string;
 }
+
+export interface SupportedGame {
+  id: string;
+  place_id: number;
+  game_name: string;
+  script_url: string;
+  script_version: string;
+  thumbnail_url: string | null;
+  description: string | null;
+  min_key_tier: 'basic' | 'premium' | 'vip';
+  is_active: boolean;
+  total_executions: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}

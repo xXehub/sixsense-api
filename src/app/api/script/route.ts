@@ -3,6 +3,9 @@ import { validateToken } from '../validate/route';
 import { errorResponse, successResponse } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
+// Main script URL - change this to your actual script location
+const MAIN_SCRIPT_URL = 'https://raw.githubusercontent.com/xXehub/sixsense-lastletter/master/new-main.lua';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -19,70 +22,63 @@ export async function POST(request: NextRequest) {
       return errorResponse('INVALID_TOKEN', 'Invalid or expired token. Please validate your key again.', 401);
     }
 
-    // 3. Get the active script version
+    // 3. Get the active script version from database
     const { data: scriptVersion } = await supabase
       .from('script_versions')
       .select('*')
       .eq('is_active', true)
       .single();
 
-    let scriptContent: string;
-
-    if (scriptVersion && scriptVersion.script_content) {
-      // Use script from database
-      scriptContent = scriptVersion.script_content;
-    } else {
-      // Fallback: Load from GitHub or local
-      // In production, you'd fetch from your actual script source
-      scriptContent = getDefaultScript();
-    }
-
-    // 4. Optional: Inject user watermark into script
-    // This helps identify who leaked the script
+    // 4. Get user info for watermark
     const { data: keyData } = await supabase
       .from('keys')
       .select('*, users(*)')
       .eq('id', keyId)
       .single();
 
-    if (keyData) {
-      const watermark = `-- Licensed to: ${keyData.users?.discord_username || 'Unknown'} (${keyData.key_value})`;
-      scriptContent = watermark + '\n' + scriptContent;
+    const username = keyData?.users?.discord_username || 'Unknown';
+    const keyValue = keyData?.key_value || 'Unknown';
+
+    // 5. Determine script source
+    let response: {
+      success: boolean;
+      version: string;
+      script?: string;
+      script_url?: string;
+      watermark?: string;
+    };
+
+    if (scriptVersion && scriptVersion.script_content) {
+      // Use script content from database
+      const watermark = `-- Licensed to: ${username} (${keyValue})\n-- Generated: ${new Date().toISOString()}\n\n`;
+      response = {
+        success: true,
+        version: scriptVersion.version || '2.0.0',
+        script: watermark + scriptVersion.script_content,
+        watermark: username
+      };
+    } else if (scriptVersion && scriptVersion.script_url) {
+      // Use script URL from database
+      response = {
+        success: true,
+        version: scriptVersion.version || '2.0.0',
+        script_url: scriptVersion.script_url,
+        watermark: username
+      };
+    } else {
+      // Fallback to default script URL
+      response = {
+        success: true,
+        version: process.env.SCRIPT_VERSION || '2.0.0',
+        script_url: MAIN_SCRIPT_URL,
+        watermark: username
+      };
     }
 
-    // 5. Return the script
-    return successResponse({
-      version: scriptVersion?.version || process.env.SCRIPT_VERSION || '2.0.0',
-      script: scriptContent
-    });
+    return successResponse(response);
 
   } catch (error) {
     console.error('Script delivery error:', error);
     return errorResponse('SERVER_ERROR', 'Failed to load script', 500);
   }
-}
-
-// Default script (placeholder - replace with actual script loading)
-function getDefaultScript(): string {
-  return `
---[[
-    sixsense - Last Letter Helper
-    Loaded via Key System
-    
-    This script was loaded successfully!
-    Replace this with your actual main script content.
-]]
-
-print("[sixsense] Script loaded successfully via key system!")
-print("[sixsense] Version: " .. (SIXSENSE_VERSION or "Unknown"))
-
--- Your actual script content would go here
--- You can either:
--- 1. Store full script in database (script_versions table)
--- 2. Fetch from GitHub private repo
--- 3. Embed the script here
-
--- For now, this is a placeholder
--- Replace getDefaultScript() with your actual script loading logic
-`;
 }

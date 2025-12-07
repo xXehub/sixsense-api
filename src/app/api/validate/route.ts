@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { supabase, Key } from '@/lib/supabase';
+import { supabase, Key, SupportedGame } from '@/lib/supabase';
 import { 
   checkRateLimit, 
   generateToken, 
@@ -10,12 +10,12 @@ import {
 } from '@/lib/utils';
 
 // Token storage (in production, use Redis or database)
-const validTokens = new Map<string, { keyId: string; expires: number }>();
+const validTokens = new Map<string, { keyId: string; gameId: string; scriptUrl: string; expires: number }>();
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { key, hwid, executor, game_id, player_name, player_id } = body;
+    const { key, hwid, executor, game_id, place_id, player_name, player_id, game_name } = body;
 
     // 1. Validate required fields
     if (!key || typeof key !== 'string') {
@@ -26,7 +26,13 @@ export async function POST(request: NextRequest) {
       return errorResponse('INVALID_HWID', 'Valid HWID is required');
     }
 
-    // 2. Rate limiting by HWID
+    // 2. Validate place_id (required for multi-game support)
+    const placeId = place_id || game_id;
+    if (!placeId) {
+      return errorResponse('MISSING_PLACE_ID', 'Game PlaceId is required');
+    }
+
+    // 3. Rate limiting by HWID
     const rateLimit = checkRateLimit(`hwid:${hwid}`, 10, 60000); // 10 requests per minute
     if (!rateLimit.allowed) {
       return errorResponse(
@@ -38,7 +44,38 @@ export async function POST(request: NextRequest) {
 
     const clientIP = getClientIP(request);
 
-    // 3. Check if HWID is blacklisted
+    // 4. Check if game is supported
+    const { data: gameData, error: gameError } = await supabase
+      .from('supported_games')
+      .select('*')
+      .eq('place_id', placeId)
+      .eq('is_active', true)
+      .single();
+
+    if (gameError || !gameData) {
+      // Log attempt for unsupported game
+      await supabase.from('usage_logs').insert({
+        hwid,
+        executor,
+        game_id: placeId,
+        game_name: game_name || 'Unknown',
+        player_name,
+        player_id,
+        ip_address: clientIP,
+        success: false,
+        error_type: 'GAME_NOT_SUPPORTED'
+      });
+
+      return errorResponse(
+        'GAME_NOT_SUPPORTED', 
+        `This game is not supported. PlaceId: ${placeId}`,
+        400
+      );
+    }
+
+    const supportedGame = gameData as SupportedGame;
+
+    // 5. Check if HWID is blacklisted
     const { data: blacklistedHwid } = await supabase
       .from('blacklisted_hwids')
       .select('*')
@@ -207,17 +244,26 @@ export async function POST(request: NextRequest) {
       user_id: keyRecord.user_id,
       hwid,
       executor,
-      game_id,
+      game_id: placeId,
+      game_name: supportedGame.game_name,
       player_name,
       player_id,
       ip_address: clientIP,
       success: true
     });
 
-    // 13. Generate script token (valid for 5 minutes)
+    // 13. Update game execution count
+    await supabase
+      .from('supported_games')
+      .update({ total_executions: supportedGame.total_executions + 1 })
+      .eq('id', supportedGame.id);
+
+    // 14. Generate script token (valid for 5 minutes)
     const token = generateToken();
     validTokens.set(token, { 
-      keyId: keyRecord.id, 
+      keyId: keyRecord.id,
+      gameId: supportedGame.id,
+      scriptUrl: supportedGame.script_url,
       expires: Date.now() + 5 * 60 * 1000 
     });
 
@@ -228,13 +274,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 14. Return success
+    // 15. Return success with game info
     return successResponse({
       user: keyRecord.users?.discord_username || 'User',
       key_type: keyRecord.key_type,
       expires_at: keyRecord.expires_at,
       total_uses: keyRecord.total_uses + 1,
-      script_token: token
+      script_token: token,
+      // Game-specific info
+      game: {
+        name: supportedGame.game_name,
+        version: supportedGame.script_version,
+        script_url: supportedGame.script_url
+      }
     });
 
   } catch (error) {
@@ -244,7 +296,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Export token validator for script route
-export function validateToken(token: string): string | null {
+export function validateToken(token: string): { keyId: string; gameId: string; scriptUrl: string } | null {
   const data = validTokens.get(token);
   if (!data) return null;
   if (Date.now() > data.expires) {
@@ -252,5 +304,5 @@ export function validateToken(token: string): string | null {
     return null;
   }
   validTokens.delete(token); // One-time use
-  return data.keyId;
+  return { keyId: data.keyId, gameId: data.gameId, scriptUrl: data.scriptUrl };
 }
