@@ -134,10 +134,32 @@ export async function POST(request: NextRequest) {
 
     const keyRecord = keyData as Key;
 
-    // 6. Check if key is active
+    // 6. Check if key has been redeemed (user_id must exist)
+    if (!keyRecord.user_id) {
+      await supabase.from('usage_logs').insert({
+        key_id: keyRecord.id,
+        hwid,
+        executor,
+        game_id,
+        player_name,
+        player_id,
+        ip_address: clientIP,
+        success: false,
+        error_type: 'KEY_NOT_REDEEMED'
+      });
+
+      return errorResponse(
+        'KEY_NOT_REDEEMED', 
+        'This key must be redeemed in Discord first! Join discord.gg/sixsense and use /key redeem',
+        401
+      );
+    }
+
+    // 7. Check if key is active
     if (!keyRecord.is_active) {
       await supabase.from('usage_logs').insert({
         key_id: keyRecord.id,
+        user_id: keyRecord.user_id,
         hwid,
         executor,
         game_id,
@@ -151,7 +173,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('KEY_DEACTIVATED', 'This key has been deactivated', 401);
     }
 
-    // 7. Check if user is banned
+    // 8. Check if user is banned
     if (keyRecord.users?.is_banned) {
       await supabase.from('usage_logs').insert({
         key_id: keyRecord.id,
@@ -173,7 +195,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 8. Check expiry
+    // 9. Check expiry
     if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
       await supabase.from('usage_logs').insert({
         key_id: keyRecord.id,
@@ -191,7 +213,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('KEY_EXPIRED', 'Your key has expired', 401);
     }
 
-    // 9. HWID Lock Logic
+    // 10. HWID Lock Logic
     if (keyRecord.hwid_locked && keyRecord.hwid) {
       if (keyRecord.hwid !== hwid) {
         await supabase.from('usage_logs').insert({
