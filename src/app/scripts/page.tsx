@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageBackground } from '@/components/ui/PageBackground';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { useToast } from '@/components/ui/Toast';
+import { useToast } from '@/components/providers/ToastProvider';
 import { 
   Gamepad2, 
   Play, 
@@ -89,10 +89,10 @@ export default function ScriptsPage() {
       const loadstring = `loadstring(game:HttpGet("https://sixsense-api.vercel.app/api/loader/${placeId}"))()`;
       await navigator.clipboard.writeText(loadstring);
       setCopiedId(placeId.toString());
-      addToast('success', 'Copied!', 'Loadstring copied to clipboard');
+      addToast('Loadstring copied to clipboard', 'success');
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      addToast('error', 'Failed to copy', 'Please try again');
+      addToast('Failed to copy', 'error');
     }
   };
 

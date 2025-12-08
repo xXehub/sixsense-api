@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageBackground } from '@/components/ui/PageBackground';
-import { useToast } from '@/components/ui/Toast';
+import { useToast } from '@/components/providers/ToastProvider';
 import { 
   Key, 
   Shield, 
