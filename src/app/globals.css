@@ -44,6 +44,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text);
+  --color-primary: #4ade80;
+  --color-primary-hover: #22c55e;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

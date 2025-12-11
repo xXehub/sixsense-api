@@ -70,6 +70,7 @@ export default function AdminDashboard() {
       change: 12,
       icon: Users,
       bgColor: 'bg-blue-500',
+      iconColor: 'text-white',
       href: '/x-admin-panel/users',
     },
     {
@@ -78,6 +79,7 @@ export default function AdminDashboard() {
       change: 8,
       icon: Key,
       bgColor: 'bg-amber-500',
+      iconColor: 'text-white',
       href: '/x-admin-panel/keys',
     },
     {
@@ -86,6 +88,7 @@ export default function AdminDashboard() {
       change: 2,
       icon: Gamepad2,
       bgColor: 'bg-purple-500',
+      iconColor: 'text-white',
       href: '/x-admin-panel/games',
     },
     {
@@ -94,6 +97,7 @@ export default function AdminDashboard() {
       change: 23,
       icon: Activity,
       bgColor: 'bg-primary',
+      iconColor: 'text-black',
       href: '/x-admin-panel/logs',
     },
   ];
@@ -134,7 +138,7 @@ export default function AdminDashboard() {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className={`p-2.5 rounded-md ${stat.bgColor}`}>
-                  <stat.icon className="h-5 w-5 text-white" />
+                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
                 </div>
                 <div className={`flex items-center gap-1 text-xs font-semibold ${
                   stat.change >= 0 ? 'text-primary' : 'text-red-400'
@@ -250,10 +254,10 @@ export default function AdminDashboard() {
           </div>
 
           {/* Last Backup */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-5">
+          <div className="bg-primary/10 border border-primary/20 rounded-md p-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-blue-500">
-                <Clock className="h-5 w-5 text-white" />
+              <div className="p-2 rounded-md bg-primary">
+                <Clock className="h-5 w-5 text-black" />
               </div>
               <span className="text-sm font-medium text-gray-300">Last Backup</span>
             </div>
@@ -262,15 +266,15 @@ export default function AdminDashboard() {
           </div>
 
           {/* Security */}
-          <div className="bg-purple-500/10 border border-purple-500/20 rounded-md p-5">
+          <div className="bg-primary/10 border border-primary/20 rounded-md p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-md bg-purple-500">
-                  <Shield className="h-5 w-5 text-white" />
+                <div className="p-2 rounded-md bg-primary">
+                  <Shield className="h-5 w-5 text-black" />
                 </div>
                 <span className="text-sm font-medium text-gray-300">Security</span>
               </div>
-              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs font-semibold rounded">ACTIVE</span>
+              <span className="px-2 py-0.5 bg-primary/20 text-primary text-xs font-semibold rounded">ACTIVE</span>
             </div>
             <p className="text-lg font-bold text-white mt-4">Protected</p>
             <p className="text-sm text-gray-500 mt-1">No threats detected</p>

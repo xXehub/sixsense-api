@@ -1,51 +1,98 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Key, Plus, Search, Filter, Download, Copy, Check,
-  Trash2, RefreshCw, ChevronLeft, ChevronRight, Sparkles, Clock, XCircle
+  Trash2, RefreshCw, ChevronLeft, ChevronRight, Sparkles, Clock, XCircle, Loader2
 } from 'lucide-react';
 
 interface LicenseKey {
   id: string;
-  key: string;
-  type: 'standard' | 'premium' | 'trial';
-  status: 'active' | 'used' | 'expired' | 'revoked';
-  user?: string;
+  key_value: string;
+  key_type: string;
+  is_active: boolean;
+  hwid: string | null;
+  user_id: string | null;
+  users?: {
+    discord_id: string;
+    discord_username: string;
+  };
   created_at: string;
-  expires_at?: string;
+  expires_at: string | null;
+  total_uses: number;
 }
 
-const dummyKeys: LicenseKey[] = [
-  { id: '1', key: 'SIX-XXXX-YYYY-ZZZZ-1234', type: 'premium', status: 'active', created_at: '2024-03-01', expires_at: '2025-03-01' },
-  { id: '2', key: 'SIX-AAAA-BBBB-CCCC-5678', type: 'standard', status: 'used', user: 'Player123', created_at: '2024-02-15' },
-  { id: '3', key: 'SIX-DDDD-EEEE-FFFF-9012', type: 'premium', status: 'used', user: 'xXgamerXx', created_at: '2024-02-20', expires_at: '2025-02-20' },
-  { id: '4', key: 'SIX-GGGG-HHHH-IIII-3456', type: 'standard', status: 'expired', user: 'OldUser', created_at: '2023-01-01' },
-  { id: '5', key: 'SIX-JJJJ-KKKK-LLLL-7890', type: 'trial', status: 'revoked', created_at: '2024-01-10' },
-  { id: '6', key: 'SIX-MMMM-NNNN-OOOO-1111', type: 'premium', status: 'active', created_at: '2024-03-05', expires_at: '2025-03-05' },
-];
-
 export default function KeysPage() {
-  const [keys] = useState<LicenseKey[]>(dummyKeys);
+  const [keys, setKeys] = useState<LicenseKey[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalKeys, setTotalKeys] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Fetch keys from API
+  const fetchKeys = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/keys?limit=100&offset=0`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch keys');
+      }
+      const data = await res.json();
+      if (data.success && data.keys) {
+        setKeys(data.keys);
+        setTotalKeys(data.total || data.keys.length);
+      } else {
+        throw new Error(data.error || 'Failed to fetch keys');
+      }
+    } catch (err) {
+      console.error('Error fetching keys:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch keys');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
+
+  // Calculate stats from real data
+  const activeKeys = keys.filter(k => k.is_active && (!k.expires_at || new Date(k.expires_at) > new Date())).length;
+  const lifetimeKeys = keys.filter(k => k.key_type === 'lifetime').length;
+  const expiredKeys = keys.filter(k => k.expires_at && new Date(k.expires_at) < new Date()).length;
+  const usedKeys = keys.filter(k => k.user_id).length;
+
+  // Determine key status
+  const getKeyStatus = (key: LicenseKey): 'active' | 'used' | 'expired' | 'revoked' => {
+    if (!key.is_active) return 'revoked';
+    if (key.expires_at && new Date(key.expires_at) < new Date()) return 'expired';
+    if (key.user_id) return 'used';
+    return 'active';
+  };
+
   const filters = [
-    { key: 'all', label: 'All Keys', count: 6 },
-    { key: 'active', label: 'Active', count: 2 },
-    { key: 'used', label: 'Used', count: 2 },
-    { key: 'expired', label: 'Expired', count: 2 },
+    { key: 'all', label: 'All Keys', count: keys.length },
+    { key: 'active', label: 'Active', count: activeKeys },
+    { key: 'used', label: 'Used', count: usedKeys },
+    { key: 'expired', label: 'Expired', count: expiredKeys },
   ];
 
   const filteredKeys = keys.filter(k => {
-    const matchesSearch = k.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         k.user?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = activeFilter === 'all' || k.status === activeFilter;
+    const matchesSearch = k.key_value.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         k.users?.discord_username?.toLowerCase().includes(searchQuery.toLowerCase());
+    const status = getKeyStatus(k);
+    const matchesFilter = activeFilter === 'all' || status === activeFilter;
     return matchesSearch && matchesFilter;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredKeys.length / limit);
+  const paginatedKeys = filteredKeys.slice((page - 1) * limit, page * limit);
 
   const copyToClipboard = (key: string) => {
     navigator.clipboard.writeText(key);
@@ -54,21 +101,23 @@ export default function KeysPage() {
   };
 
   const typeColors: Record<string, string> = {
-    premium: 'bg-amber-500/20 text-amber-400',
-    standard: 'bg-blue-500/20 text-blue-400',
-    trial: 'bg-purple-500/20 text-purple-400',
+    lifetime: 'bg-primary/20 text-primary',
+    monthly: 'bg-amber-500/20 text-amber-400',
+    weekly: 'bg-blue-500/20 text-blue-400',
+    daily: 'bg-gray-500/20 text-gray-400',
+    custom: 'bg-purple-500/20 text-purple-400',
   };
 
   const statusColors: Record<string, string> = {
     active: 'text-primary',
-    used: 'text-blue-400',
+    used: 'text-primary',
     expired: 'text-gray-400',
     revoked: 'text-red-400',
   };
 
   const statusDots: Record<string, string> = {
     active: 'bg-primary',
-    used: 'bg-blue-500',
+    used: 'bg-primary',
     expired: 'bg-gray-500',
     revoked: 'bg-red-500',
   };
@@ -94,7 +143,7 @@ export default function KeysPage() {
             <Key className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">856</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : keys.length.toLocaleString()}</p>
             <p className="text-xs text-gray-500">Total Keys</p>
           </div>
         </div>
@@ -103,17 +152,17 @@ export default function KeysPage() {
             <Sparkles className="h-4 w-4 text-black" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">124</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : activeKeys.toLocaleString()}</p>
             <p className="text-xs text-gray-500">Active Keys</p>
           </div>
         </div>
         <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-amber-500">
+          <div className="p-2 rounded-md bg-purple-500">
             <Clock className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">89</p>
-            <p className="text-xs text-gray-500">Premium Keys</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : lifetimeKeys.toLocaleString()}</p>
+            <p className="text-xs text-gray-500">Lifetime Keys</p>
           </div>
         </div>
         <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
@@ -121,7 +170,7 @@ export default function KeysPage() {
             <XCircle className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">45</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : expiredKeys.toLocaleString()}</p>
             <p className="text-xs text-gray-500">Expired Keys</p>
           </div>
         </div>
@@ -185,7 +234,31 @@ export default function KeysPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
-              {filteredKeys.map((k) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <Loader2 className="h-6 w-6 text-primary animate-spin mx-auto" />
+                    <p className="text-sm text-gray-400 mt-2">Loading keys...</p>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <XCircle className="h-6 w-6 text-red-400 mx-auto" />
+                    <p className="text-sm text-red-400 mt-2">{error}</p>
+                    <button onClick={fetchKeys} className="mt-2 text-sm text-primary hover:underline">Retry</button>
+                  </td>
+                </tr>
+              ) : paginatedKeys.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <Key className="h-6 w-6 text-gray-500 mx-auto" />
+                    <p className="text-sm text-gray-400 mt-2">No keys found</p>
+                  </td>
+                </tr>
+              ) : paginatedKeys.map((k) => {
+                const status = getKeyStatus(k);
+                return (
                 <tr key={k.id} className="hover:bg-[#0a0a0a] transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -193,13 +266,13 @@ export default function KeysPage() {
                         <Key className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <code className="text-xs text-gray-300 font-mono">
-                        {k.key.substring(0, 8)}...{k.key.slice(-4)}
+                        {k.key_value.substring(0, 8)}...{k.key_value.slice(-4)}
                       </code>
                       <button
-                        onClick={() => copyToClipboard(k.key)}
+                        onClick={() => copyToClipboard(k.key_value)}
                         className="p-1 rounded text-gray-500 hover:text-white hover:bg-[#1a1a1a] transition-colors"
                       >
-                        {copiedKey === k.key ? (
+                        {copiedKey === k.key_value ? (
                           <Check className="h-3.5 w-3.5 text-primary" />
                         ) : (
                           <Copy className="h-3.5 w-3.5" />
@@ -208,18 +281,18 @@ export default function KeysPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${typeColors[k.type]}`}>
-                      {k.type.toUpperCase()}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${typeColors[k.key_type] || 'bg-gray-500/20 text-gray-400'}`}>
+                      {(k.key_type || 'standard').toUpperCase()}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`flex items-center gap-1.5 text-xs font-medium ${statusColors[k.status]}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${statusDots[k.status]}`} />
-                      {k.status.charAt(0).toUpperCase() + k.status.slice(1)}
+                    <span className={`flex items-center gap-1.5 text-xs font-medium ${statusColors[status]}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusDots[status]}`} />
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs text-gray-400">{k.user || '—'}</span>
+                    <span className="text-xs text-gray-400">{k.users?.discord_username || '—'}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs text-gray-400">
@@ -237,7 +310,7 @@ export default function KeysPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>

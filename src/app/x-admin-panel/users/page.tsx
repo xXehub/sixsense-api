@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Search, Filter, Download,
-  Edit, Trash2, Ban, CheckCircle, XCircle, ChevronLeft, ChevronRight
+  Edit, Trash2, Ban, CheckCircle, XCircle, ChevronLeft, ChevronRight, RefreshCw, Loader2
 } from 'lucide-react';
 
 interface User {
@@ -11,48 +11,71 @@ interface User {
   discord_id: string;
   discord_username: string;
   discord_avatar?: string;
-  email?: string;
-  role: 'user' | 'premium' | 'admin';
+  keys_count?: number;
   is_banned: boolean;
+  ban_reason?: string;
   created_at: string;
 }
 
-const dummyUsers: User[] = [
-  { id: '1', discord_id: '123456789', discord_username: 'Player123', email: 'player@email.com', role: 'user', is_banned: false, created_at: '2024-01-15' },
-  { id: '2', discord_id: '987654321', discord_username: 'xXgamerXx', email: 'gamer@email.com', role: 'premium', is_banned: false, created_at: '2024-01-20' },
-  { id: '3', discord_id: '456789123', discord_username: 'ProPlayer', email: 'pro@email.com', role: 'premium', is_banned: false, created_at: '2024-02-01' },
-  { id: '4', discord_id: '789123456', discord_username: 'BannedUser', email: 'banned@email.com', role: 'user', is_banned: true, created_at: '2024-02-10' },
-  { id: '5', discord_id: '321654987', discord_username: 'NewUser456', email: 'new@email.com', role: 'user', is_banned: false, created_at: '2024-03-01' },
-  { id: '6', discord_id: '111222333', discord_username: 'AdminUser', email: 'admin@email.com', role: 'admin', is_banned: false, created_at: '2024-01-01' },
-];
-
 export default function UsersPage() {
-  const [users] = useState<User[]>(dummyUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
 
+  // Fetch users from API
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      const data = await res.json();
+      if (data.success && data.users) {
+        setUsers(data.users);
+      } else {
+        throw new Error(data.error || 'Failed to fetch users');
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Calculate stats from real data
+  const totalUsers = users.length;
+  const premiumUsers = users.filter(u => (u.keys_count || 0) > 0).length;
+  const bannedUsers = users.filter(u => u.is_banned).length;
+
   const filters = [
-    { key: 'all', label: 'All Users', count: 6 },
-    { key: 'premium', label: 'Premium', count: 2 },
-    { key: 'banned', label: 'Banned', count: 1 },
+    { key: 'all', label: 'All Users', count: totalUsers },
+    { key: 'premium', label: 'With Keys', count: premiumUsers },
+    { key: 'banned', label: 'Banned', count: bannedUsers },
   ];
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.discord_username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = user.discord_username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         user.discord_id?.includes(searchQuery);
     const matchesFilter = activeFilter === 'all' || 
-                         (activeFilter === 'premium' && user.role === 'premium') ||
+                         (activeFilter === 'premium' && (user.keys_count || 0) > 0) ||
                          (activeFilter === 'banned' && user.is_banned);
     return matchesSearch && matchesFilter;
   });
 
-  const roleColors: Record<string, string> = {
-    admin: 'bg-red-500/20 text-red-400',
-    premium: 'bg-amber-500/20 text-amber-400',
-    user: 'bg-gray-500/20 text-gray-400',
-  };
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / limit);
+  const paginatedUsers = filteredUsers.slice((page - 1) * limit, page * limit);
 
   return (
     <div className="space-y-6 w-full">
@@ -75,7 +98,7 @@ export default function UsersPage() {
             <Users className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">1,234</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : totalUsers.toLocaleString()}</p>
             <p className="text-xs text-gray-500">Total Users</p>
           </div>
         </div>
@@ -84,8 +107,8 @@ export default function UsersPage() {
             <CheckCircle className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">124</p>
-            <p className="text-xs text-gray-500">Premium Users</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : premiumUsers.toLocaleString()}</p>
+            <p className="text-xs text-gray-500">With Keys</p>
           </div>
         </div>
         <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
@@ -93,7 +116,7 @@ export default function UsersPage() {
             <XCircle className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">23</p>
+            <p className="text-lg font-bold text-white">{isLoading ? '...' : bannedUsers.toLocaleString()}</p>
             <p className="text-xs text-gray-500">Banned Users</p>
           </div>
         </div>
@@ -153,23 +176,45 @@ export default function UsersPage() {
               <tr className="border-b border-[#1a1a1a] bg-[#0a0a0a]">
                 <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">User</th>
                 <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Discord ID</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Role</th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Keys</th>
                 <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
                 <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Joined</th>
                 <th className="px-5 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
-              {filteredUsers.map((user) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center">
+                    <Loader2 className="h-6 w-6 text-primary animate-spin mx-auto" />
+                    <p className="text-sm text-gray-400 mt-2">Loading users...</p>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center">
+                    <XCircle className="h-6 w-6 text-red-400 mx-auto" />
+                    <p className="text-sm text-red-400 mt-2">{error}</p>
+                    <button onClick={fetchUsers} className="mt-2 text-sm text-primary hover:underline">Retry</button>
+                  </td>
+                </tr>
+              ) : paginatedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center">
+                    <Users className="h-6 w-6 text-gray-500 mx-auto" />
+                    <p className="text-sm text-gray-400 mt-2">No users found</p>
+                  </td>
+                </tr>
+              ) : paginatedUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-[#0a0a0a] transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-md bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
-                        {user.discord_username.charAt(0).toUpperCase()}
+                        {user.discord_username?.charAt(0).toUpperCase() || '?'}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">{user.discord_username}</p>
-                        <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
+                        <p className="text-sm font-medium text-white">{user.discord_username || 'Unknown'}</p>
+                        <p className="text-xs text-gray-500">{user.keys_count || 0} keys</p>
                       </div>
                     </div>
                   </td>
@@ -179,8 +224,8 @@ export default function UsersPage() {
                     </code>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded ${roleColors[user.role]}`}>
-                      {user.role.toUpperCase()}
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded ${(user.keys_count || 0) > 0 ? 'bg-primary/20 text-primary' : 'bg-gray-500/20 text-gray-400'}`}>
+                      {user.keys_count || 0} KEYS
                     </span>
                   </td>
                   <td className="px-5 py-4">
@@ -226,7 +271,7 @@ export default function UsersPage() {
             <span className="text-sm text-gray-400">Rows per page:</span>
             <select
               value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
               className="px-2 py-1 bg-[#1a1a1a] border border-[#222] rounded-md text-sm text-white focus:outline-none focus:border-primary/50"
             >
               <option value={10}>10</option>
@@ -234,7 +279,7 @@ export default function UsersPage() {
               <option value={50}>50</option>
             </select>
             <span className="text-sm text-gray-500">
-              Showing 1-{Math.min(limit, filteredUsers.length)} of {filteredUsers.length}
+              Showing {filteredUsers.length > 0 ? (page - 1) * limit + 1 : 0}-{Math.min(page * limit, filteredUsers.length)} of {filteredUsers.length}
             </span>
           </div>
           <div className="flex items-center gap-2">

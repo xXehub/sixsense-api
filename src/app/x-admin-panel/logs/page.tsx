@@ -111,8 +111,8 @@ export default function LogsPage() {
           </div>
         </div>
         <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-primary">
-            <Shield className="h-4 w-4 text-black" />
+          <div className="p-2 rounded-md bg-purple-500">
+            <Shield className="h-4 w-4 text-white" />
           </div>
           <div>
             <p className="text-lg font-bold text-white">1,234</p>

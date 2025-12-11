@@ -1,67 +1,115 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Gamepad2, Plus, Search, Filter, ExternalLink, Edit, Trash2,
-  ChevronLeft, ChevronRight, Play, Pause, Wrench, TrendingUp
+  ChevronLeft, ChevronRight, Play, Pause, Loader2
 } from 'lucide-react';
 
 interface Game {
-  id: string;
-  name: string;
-  game_id: string;
-  status: 'active' | 'maintenance' | 'disabled';
-  executions: number;
-  users: number;
-  last_updated: string;
+  id: number;
+  place_id: string;
+  game_name: string;
+  script_url: string;
+  description: string | null;
+  is_active: boolean;
+  min_key_tier: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-const dummyGames: Game[] = [
-  { id: '1', name: 'Blox Fruits', game_id: '2753915549', status: 'active', executions: 12450, users: 2340, last_updated: '2024-03-01' },
-  { id: '2', name: 'Pet Simulator X', game_id: '6284583030', status: 'active', executions: 8920, users: 1890, last_updated: '2024-02-28' },
-  { id: '3', name: 'Anime Adventures', game_id: '8304191830', status: 'maintenance', executions: 6780, users: 1250, last_updated: '2024-02-25' },
-  { id: '4', name: 'Tower Defense Simulator', game_id: '3260590327', status: 'active', executions: 4560, users: 980, last_updated: '2024-02-20' },
-  { id: '5', name: 'Murder Mystery 2', game_id: '142823291', status: 'disabled', executions: 3200, users: 560, last_updated: '2024-01-15' },
-  { id: '6', name: 'Adopt Me', game_id: '920587237', status: 'active', executions: 2890, users: 720, last_updated: '2024-03-02' },
-];
+interface GamesResponse {
+  success: boolean;
+  data?: {
+    games: Game[];
+    total: number;
+  };
+  error?: string;
+}
 
 export default function GamesPage() {
-  const [games] = useState<Game[]>(dummyGames);
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGames = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch('/api/admin/games');
+      
+      if (!res.ok) {
+        if (res.status === 403) {
+          setError('Access denied. Please login as admin.');
+        } else {
+          setError(`Server error: ${res.status}`);
+        }
+        return;
+      }
+      
+      const data: GamesResponse = await res.json();
+      
+      if (data.success && data.data) {
+        setGames(data.data.games);
+      } else {
+        setError(data.error || 'Failed to fetch games');
+      }
+    } catch (err) {
+      setError('Failed to fetch games. Check console for details.');
+      console.error('Fetch games error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGames();
+  }, [fetchGames]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
 
+  // Dynamic stats based on fetched games
+  const stats = {
+    total: games.length,
+    active: games.filter(g => g.is_active).length,
+    inactive: games.filter(g => !g.is_active).length,
+  };
+
   const filters = [
-    { key: 'all', label: 'All Games', count: 6 },
-    { key: 'active', label: 'Active', count: 4 },
-    { key: 'maintenance', label: 'Maintenance', count: 1 },
-    { key: 'disabled', label: 'Disabled', count: 1 },
+    { key: 'all', label: 'All Games', count: stats.total },
+    { key: 'active', label: 'Active', count: stats.active },
+    { key: 'inactive', label: 'Inactive', count: stats.inactive },
   ];
 
   const filteredGames = games.filter(g => {
-    const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         g.game_id.includes(searchQuery);
-    const matchesFilter = activeFilter === 'all' || g.status === activeFilter;
+    const matchesSearch = g.game_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         g.place_id.includes(searchQuery);
+    const matchesFilter = activeFilter === 'all' || 
+      (activeFilter === 'active' && g.is_active) || 
+      (activeFilter === 'inactive' && !g.is_active);
     return matchesSearch && matchesFilter;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredGames.length / limit);
+  const paginatedGames = filteredGames.slice((page - 1) * limit, page * limit);
+
+  // Simple active/inactive status based on is_active field
+  const getGameStatus = (game: Game): 'active' | 'inactive' => {
+    return game.is_active ? 'active' : 'inactive';
+  };
+
   const statusColors: Record<string, string> = {
     active: 'text-primary',
-    maintenance: 'text-amber-400',
-    disabled: 'text-red-400',
+    inactive: 'text-red-400',
   };
 
   const statusDots: Record<string, string> = {
     active: 'bg-primary',
-    maintenance: 'bg-amber-500',
-    disabled: 'bg-red-500',
-  };
-
-  const statusIcons: Record<string, typeof Play> = {
-    active: Play,
-    maintenance: Wrench,
-    disabled: Pause,
+    inactive: 'bg-red-500',
   };
 
   return (
@@ -79,13 +127,13 @@ export default function GamesPage() {
       </div>
 
       {/* Stats Cards - Compact */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-blue-500">
+          <div className="p-2 rounded-md bg-purple-500">
             <Gamepad2 className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">24</p>
+            <p className="text-lg font-bold text-white">{loading ? '...' : stats.total}</p>
             <p className="text-xs text-gray-500">Total Games</p>
           </div>
         </div>
@@ -94,26 +142,17 @@ export default function GamesPage() {
             <Play className="h-4 w-4 text-black" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">18</p>
+            <p className="text-lg font-bold text-white">{loading ? '...' : stats.active}</p>
             <p className="text-xs text-gray-500">Active Games</p>
           </div>
         </div>
         <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-amber-500">
-            <Wrench className="h-4 w-4 text-white" />
+          <div className="p-2 rounded-md bg-red-500">
+            <Pause className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-lg font-bold text-white">4</p>
-            <p className="text-xs text-gray-500">In Maintenance</p>
-          </div>
-        </div>
-        <div className="bg-[#111] border border-[#1a1a1a] rounded-md p-4 flex items-center gap-3">
-          <div className="p-2 rounded-md bg-purple-500">
-            <TrendingUp className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-white">38.8K</p>
-            <p className="text-xs text-gray-500">Total Executions</p>
+            <p className="text-lg font-bold text-white">{loading ? '...' : stats.inactive}</p>
+            <p className="text-xs text-gray-500">Inactive Games</p>
           </div>
         </div>
       </div>
@@ -168,74 +207,102 @@ export default function GamesPage() {
             <thead>
               <tr className="border-b border-[#1a1a1a] bg-[#0a0a0a]">
                 <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Game</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Game ID</th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Place ID</th>
                 <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Executions</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Users</th>
-                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Last Updated</th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Min Tier</th>
+                <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Created</th>
                 <th className="px-5 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1a1a1a]">
-              {filteredGames.map((game) => {
-                const StatusIcon = statusIcons[game.status];
-                return (
-                  <tr key={game.id} className="hover:bg-[#0a0a0a] transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-md bg-blue-500/20">
-                          <Gamepad2 className="h-4 w-4 text-blue-400" />
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center">
+                    <div className="flex items-center justify-center gap-2 text-gray-400">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Loading games...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center">
+                    <div className="text-red-400">{error}</div>
+                    <button 
+                      onClick={fetchGames}
+                      className="mt-2 text-sm text-primary hover:underline"
+                    >
+                      Retry
+                    </button>
+                  </td>
+                </tr>
+              ) : paginatedGames.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-12 text-center text-gray-500">
+                    No games found
+                  </td>
+                </tr>
+              ) : (
+                paginatedGames.map((game) => {
+                  const status = getGameStatus(game);
+                  return (
+                    <tr key={game.id} className="hover:bg-[#0a0a0a] transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-md bg-primary/20">
+                            <Gamepad2 className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-white">{game.game_name}</span>
+                            {game.description && (
+                              <p className="text-xs text-gray-500 max-w-xs truncate">{game.description}</p>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-sm font-medium text-white">{game.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm text-gray-400 font-mono">{game.game_id}</code>
-                        <a
-                          href={`https://www.roblox.com/games/${game.game_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1 rounded text-gray-500 hover:text-white transition-colors"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`flex items-center gap-1.5 text-xs font-semibold ${statusColors[game.status]}`}>
-                        <span className={`w-2 h-2 rounded-full ${statusDots[game.status]}`} />
-                        {game.status.charAt(0).toUpperCase() + game.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm text-white font-medium">
-                        {game.executions.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm text-gray-400">
-                        {game.users.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm text-gray-400">
-                        {new Date(game.last_updated).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-colors">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button className="p-2 rounded-md text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <code className="text-sm text-gray-400 font-mono">{game.place_id}</code>
+                          <a
+                            href={`https://www.roblox.com/games/${game.place_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded text-gray-500 hover:text-white transition-colors"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`flex items-center gap-1.5 text-xs font-semibold ${statusColors[status]}`}>
+                          <span className={`w-2 h-2 rounded-full ${statusDots[status]}`} />
+                          {status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm text-white font-medium">
+                          Tier {game.min_key_tier}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm text-gray-400">
+                          {new Date(game.created_at).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-colors">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 rounded-md text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -268,7 +335,8 @@ export default function GamesPage() {
             <span className="px-3 py-1 bg-primary text-black text-sm font-semibold rounded-md">{page}</span>
             <button
               onClick={() => setPage(p => p + 1)}
-              className="p-2 rounded-md bg-[#1a1a1a] text-gray-400 hover:text-white transition-colors"
+              disabled={page >= totalPages}
+              className="p-2 rounded-md bg-[#1a1a1a] text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
