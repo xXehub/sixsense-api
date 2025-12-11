@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { encryptScript } from '@/lib/encryption';
 
 // Known Roblox executor user agents and patterns
 const EXECUTOR_PATTERNS = [
@@ -59,64 +60,27 @@ function isExecutorRequest(request: NextRequest): { isExecutor: boolean; executo
 
 // Detect if script is already obfuscated (WeAreDevs, Luarmor, etc)
 function isAlreadyObfuscated(script: string): boolean {
+  // Check file size - obfuscated scripts usually much larger
+  if (script.length > 50000) return true;
+  
   const obfuscationPatterns = [
-    /local _ENV.*getfenv/,  // Common obfuscator pattern
-    /\b[A-Za-z_]\w{30,}\b/, // Very long variable names
+    /local _ENV.*getfenv/i,  // Common obfuscator pattern
+    /\b[A-Za-z_]\w{30,}\b/, // Very long variable names (30+ chars)
     /\\x[0-9a-fA-F]{2}/,    // Hex escaped characters
-    /loadstring.*getfenv/,  // Loadstring with getfenv wrapper
-    /_G\[.*\]\s*=/,         // Global table obfuscation
+    /loadstring.*getfenv/i,  // Loadstring with getfenv wrapper
+    /_G\[['"].*['"]\]/,     // Global table obfuscation
+    /_bsdata\d*/i,          // Luarmor pattern
+    /pcall.*delfile.*cache/i, // Cache deletion pattern
+    /string\.char\(\d+,\s*\d+,\s*\d+/i, // Multiple string.char with numbers
+    /bit32\.(bxor|band|bor)/i, // Bitwise operations (common in obfuscators)
+    /tonumber\([^,]+,\s*16\)/i, // Hex number parsing
+    /table\.concat\s*\(/i,   // Table concat (common in decoders)
+    /local\s+function\s+[a-zA-Z_]\([a-zA-Z_],[a-zA-Z_]\).*bit32/i, // XOR function pattern
   ];
   
-  return obfuscationPatterns.some(pattern => pattern.test(script));
-}
-
-// Simple script wrapping with runtime key validation (NO OBFUSCATION)
-// User should obfuscate manually before uploading to protected_scripts
-function wrapScript(
-  script: string, 
-  accessKey: string, 
-  requireKey: boolean,
-  baseUrl: string
-): string {
-  const watermark = `-- Protected by SixSense | ${accessKey.substring(0, 8)}... | ${new Date().toISOString().split('T')[0]}`;
-  const isObfuscated = isAlreadyObfuscated(script);
-  
-  // If no key required, return script as-is (already obfuscated by user)
-  if (!requireKey) {
-    return `${watermark}
--- Script already obfuscated by owner
-${script}`;
-  }
-
-  // With runtime key validation (wrap around existing obfuscated script)
-  return `${watermark}
--- Runtime Key Validation
-local HttpService = game:GetService("HttpService")
-local KEY = (getgenv and getgenv().SIXSENSE_KEY) or _G.SIXSENSE_KEY
-
-if not KEY then
-    return warn("[SixSense] No license key found! Set _G.SIXSENSE_KEY before loading.")
-end
-
--- Validate with server
-local success, response = pcall(function()
-    return game:HttpGet("${baseUrl}/api/validate/key?key=" .. KEY .. "&script=${accessKey}")
-end)
-
-if not success or not response then
-    return warn("[SixSense] Failed to validate license key. Check connection.")
-end
-
-local data = HttpService:JSONDecode(response)
-
-if not data.valid then
-    return warn("[SixSense] Invalid license key: " .. (data.error or "Unknown error"))
-end
-
-print("[SixSense] ✓ Validated: " .. (data.username or "User"))
-
--- Execute protected script (already obfuscated by owner)
-${script}`;
+  // Count matches - if 3+ patterns match, likely obfuscated
+  const matchCount = obfuscationPatterns.filter(pattern => pattern.test(script)).length;
+  return matchCount >= 3;
 }
 
 // GET /api/script/[accessKey] - Serve protected script
@@ -227,18 +191,46 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
     // 8. Log successful load
     await logScriptLoad(accessKey, request, executorName, hwid, playerId, playerName, gameId, providedKey, true, null);
 
-    // 9. Return wrapped script with runtime validation (if needed)
+    // 9. Return encrypted script (Luarmor-style) or plaintext if already obfuscated
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
     const useRuntimeValidation = script.require_key && !allowDevBypass;
     
-    const wrappedScript = wrapScript(
-      script.script_content, 
-      accessKey, 
-      useRuntimeValidation,
-      baseUrl
-    );
+    let finalScript: string;
+    const watermark = `-- Protected by SixSense | ${accessKey.substring(0, 8)}... | ${new Date().toISOString().split('T')[0]}`;
+    
+    // Check if script already obfuscated by user (WeAreDevs, Luarmor, etc)
+    if (isAlreadyObfuscated(script.script_content)) {
+      // Return as-is with optional key validation wrapper
+      if (useRuntimeValidation) {
+        finalScript = `${watermark}
+-- Runtime Key Validation
+local HttpService = game:GetService("HttpService")
+local KEY = (getgenv and getgenv().SIXSENSE_KEY) or _G.SIXSENSE_KEY
+if not KEY then return warn("[SixSense] No license key found") end
+local s,r=pcall(function()return game:HttpGet("${baseUrl}/api/validate/key?key="..KEY.."&script=${accessKey}")end)
+if not s or not r then return warn("[SixSense] Validation failed")end
+local d=HttpService:JSONDecode(r)
+if not d.valid then return warn("[SixSense] Invalid key: "..(d.error or"Unknown"))end
+print("[SixSense] ✓ "..d.username)
+-- Execute protected script (already obfuscated by owner)
+${script.script_content}`;
+      } else {
+        finalScript = `${watermark}
+-- Script already obfuscated by owner
+${script.script_content}`;
+      }
+    } else {
+      // Encrypt with Luarmor-style protection (NEW BYTE ARRAY APPROACH)
+      const { loader } = encryptScript(
+        script.script_content,
+        accessKey,
+        useRuntimeValidation,
+        baseUrl
+      );
+      finalScript = loader;
+    }
 
-    return new NextResponse(wrappedScript, {
+    return new NextResponse(finalScript, {
       status: 200,
       headers: {
         'Content-Type': 'text/plain',
