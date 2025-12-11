@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { encryptScript } from '@/lib/encryption';
+import { encryptScript, generateEncryptionKey } from '@/lib/encryption';
+import { generateAccessDeniedHTML } from '@/lib/access-denied';
+import CryptoJS from 'crypto-js';
 
 // Known Roblox executor user agents and patterns
 const EXECUTOR_PATTERNS = [
@@ -20,6 +22,13 @@ interface ScriptParams {
   params: Promise<{
     accessKey: string;
   }>;
+}
+
+// Detect if request is from API testing tool (Postman, Insomnia, curl)
+function isTestingTool(request: NextRequest): boolean {
+  const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+  const testingToolPatterns = ['postman', 'insomnia', 'curl', 'httpie', 'wget', 'fetch'];
+  return testingToolPatterns.some(pattern => userAgent.includes(pattern));
 }
 
 // Detect if request is from Roblox executor
@@ -60,27 +69,29 @@ function isExecutorRequest(request: NextRequest): { isExecutor: boolean; executo
 
 // Detect if script is already obfuscated (WeAreDevs, Luarmor, etc)
 function isAlreadyObfuscated(script: string): boolean {
-  // Check file size - obfuscated scripts usually much larger
-  if (script.length > 50000) return true;
+  // STRICTER DETECTION: Must meet BOTH size AND multiple strong patterns
+  const isLarge = script.length > 100000; // 100KB+ (stricter)
   
   const obfuscationPatterns = [
     /local _ENV.*getfenv/i,  // Common obfuscator pattern
-    /\b[A-Za-z_]\w{30,}\b/, // Very long variable names (30+ chars)
+    /\b[A-Za-z_]\w{40,}\b/, // Very long variable names (40+ chars, stricter)
     /\\x[0-9a-fA-F]{2}/,    // Hex escaped characters
     /loadstring.*getfenv/i,  // Loadstring with getfenv wrapper
     /_G\[['"].*['"]\]/,     // Global table obfuscation
     /_bsdata\d*/i,          // Luarmor pattern
-    /pcall.*delfile.*cache/i, // Cache deletion pattern
-    /string\.char\(\d+,\s*\d+,\s*\d+/i, // Multiple string.char with numbers
-    /bit32\.(bxor|band|bor)/i, // Bitwise operations (common in obfuscators)
-    /tonumber\([^,]+,\s*16\)/i, // Hex number parsing
-    /table\.concat\s*\(/i,   // Table concat (common in decoders)
-    /local\s+function\s+[a-zA-Z_]\([a-zA-Z_],[a-zA-Z_]\).*bit32/i, // XOR function pattern
+    /string\.char\(\d+,\s*\d+,\s*\d+,\s*\d+,\s*\d+/i, // 5+ string.char args (stronger)
+    /bit32\.(bxor|band|bor).*bit32\.(bxor|band|bor)/i, // Multiple bitwise ops
+    /tonumber\([^,]+,\s*16\).*tonumber\([^,]+,\s*16\)/i, // Multiple hex parsing
+    /table\.concat\s*\(.*table\.concat\s*\(/i,   // Multiple table.concat
+    /local\s+function\s+[a-zA-Z_]\([a-zA-Z_],[a-zA-Z_]\).*bit32.*return/i, // XOR function
+    /-- Obfuscated|-- Protected|-- Encrypted/i, // Explicit obfuscation markers
   ];
   
-  // Count matches - if 3+ patterns match, likely obfuscated
+  // Require 5+ strong patterns (stricter than before)
   const matchCount = obfuscationPatterns.filter(pattern => pattern.test(script)).length;
-  return matchCount >= 3;
+  
+  // BOTH conditions must be true (large size AND many patterns)
+  return isLarge && matchCount >= 5;
 }
 
 // GET /api/script/[accessKey] - Serve protected script
@@ -91,10 +102,14 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
   const devBypassEnabled = process.env.ENABLE_DEV_BYPASS === 'true';
 
   try {
-    // 1. Check if request is from executor
+    // 1. Check if request is from executor or testing tool
     const { isExecutor, executorName } = isExecutorRequest(request);
+    const isTestTool = isTestingTool(request);
     
-    if (!isExecutor) {
+    // Allow: executors OR (testing tools in dev mode)
+    const allowAccess = isExecutor || (devBypassEnabled && isTestTool);
+    
+    if (!allowAccess) {
       // Log blocked attempt
       await supabase.from('script_load_logs').insert({
         ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
@@ -104,19 +119,28 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
         error_message: 'Browser access blocked'
       });
 
-      // Return fake/decoy response for browsers
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+      // Return styled Access Denied page for browsers
       return new NextResponse(
-        `-- Access Denied\n-- This script can only be loaded via Roblox executor\n-- Visit ${baseUrl} for more info\nreturn nil`,
+        generateAccessDeniedHTML({
+          title: 'Script Protected',
+          message: 'This script can only be loaded via Roblox Executor',
+          subtitle: 'Use loadstring(game:HttpGet(url))() in your executor to run this script.',
+          icon: '🔐'
+        }),
         {
-          status: 200, // Return 200 to not give info to scrapers
+          status: 403,
           headers: {
-            'Content-Type': 'text/plain',
+            'Content-Type': 'text/html; charset=utf-8',
             'Cache-Control': 'no-store, no-cache, must-revalidate',
             'X-Robots-Tag': 'noindex, nofollow',
           }
         }
       );
+    }
+    
+    // Log if testing tool bypassed in dev
+    if (isTestTool && devBypassEnabled) {
+      console.log(`[DEV] Testing tool allowed: ${request.headers.get('user-agent')} → ${accessKey}`);
     }
 
     // 2. Find script by access key
@@ -191,15 +215,22 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
     // 8. Log successful load
     await logScriptLoad(accessKey, request, executorName, hwid, playerId, playerName, gameId, providedKey, true, null);
 
-    // 9. Return encrypted script (Luarmor-style) or plaintext if already obfuscated
+    // 9. Return encrypted script (ALWAYS ENCRYPT PLAINTEXT, NO DEV BYPASS)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
-    const useRuntimeValidation = script.require_key && !allowDevBypass;
+    // CRITICAL: ALWAYS use runtime validation if require_key is true (no dev bypass)
+    const useRuntimeValidation = script.require_key;
     
     let finalScript: string;
     const watermark = `-- Protected by SixSense | ${accessKey.substring(0, 8)}... | ${new Date().toISOString().split('T')[0]}`;
     
-    // Check if script already obfuscated by user (WeAreDevs, Luarmor, etc)
-    if (isAlreadyObfuscated(script.script_content)) {
+    // Check if script already obfuscated by user (STRICTER DETECTION)
+    const alreadyObfuscated = isAlreadyObfuscated(script.script_content);
+    
+    if (devBypassEnabled) {
+      console.log(`[Security Check] Script ${accessKey}: size=${script.script_content.length}, obfuscated=${alreadyObfuscated}`);
+    }
+    
+    if (alreadyObfuscated) {
       // Return as-is with optional key validation wrapper
       if (useRuntimeValidation) {
         finalScript = `${watermark}
@@ -220,13 +251,33 @@ ${script.script_content}`;
 ${script.script_content}`;
       }
     } else {
-      // Encrypt with Luarmor-style protection (NEW BYTE ARRAY APPROACH)
-      const { loader } = encryptScript(
+      // Get or create encryption key from database (MUST be consistent with decoder)
+      let encryptionKey = script.encryption_key;
+      
+      if (!encryptionKey) {
+        // Generate new key if not exists (first time)
+        encryptionKey = generateEncryptionKey(accessKey);
+        
+        // Save to database so decoder uses the same key
+        await supabase
+          .from('protected_scripts')
+          .update({ encryption_key: encryptionKey })
+          .eq('id', script.id);
+        
+        console.log(`[Security] New encryption key generated for ${accessKey}: ${encryptionKey.substring(0, 8)}...`);
+      }
+      
+      // Encrypt using key from database - ensures loader and decoder use same key
+      const { loader, dynamicKey } = encryptScript(
         script.script_content,
         accessKey,
         useRuntimeValidation,
-        baseUrl
+        baseUrl,
+        encryptionKey // Pass database key
       );
+      
+      console.log(`[Security] Encryption key for ${accessKey}: ${encryptionKey.substring(0, 8)}... (from db)`);
+      
       finalScript = loader;
     }
 

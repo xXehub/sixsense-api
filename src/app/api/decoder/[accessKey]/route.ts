@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { generateLuaDecoder } from '@/lib/encryption';
+import { generateAccessDeniedHTML } from '@/lib/access-denied';
 import CryptoJS from 'crypto-js';
 
 interface DecoderParams {
@@ -9,11 +10,76 @@ interface DecoderParams {
   }>;
 }
 
-// GET /api/decoder/[accessKey] - Serve decoder script
+// Known Roblox executor patterns
+const EXECUTOR_PATTERNS = [
+  'roblox', 'synapse', 'script-ware', 'scriptware', 'krnl', 
+  'fluxus', 'oxygen', 'hydrogen', 'electron', 'evon',
+  'arceus', 'comet', 'delta', 'trigon', 'vega',
+  'httpget', 'syn', 'http_request', 'request'
+];
+
+// Browser patterns to block
+const BROWSER_PATTERNS = [
+  'mozilla', 'chrome', 'safari', 'firefox', 'edge', 'opera',
+  'webkit', 'gecko', 'trident', 'applewebkit'
+];
+
+// Check if request is from executor (NOT browser/Postman)
+function isExecutorRequest(request: NextRequest): boolean {
+  const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+  const robloxSecurity = request.headers.get('roblox-security');
+  const synHeader = request.headers.get('syn-fingerprint');
+  
+  // Check executor headers first
+  if (synHeader || robloxSecurity) return true;
+  
+  // Check executor patterns in user agent
+  if (EXECUTOR_PATTERNS.some(pattern => userAgent.includes(pattern))) {
+    return true;
+  }
+  
+  // Block browsers explicitly
+  if (BROWSER_PATTERNS.some(pattern => userAgent.includes(pattern))) {
+    return false;
+  }
+  
+  // Block testing tools
+  const testToolPatterns = ['postman', 'insomnia', 'curl', 'wget', 'python-requests', 'httpie'];
+  if (testToolPatterns.some(pattern => userAgent.includes(pattern))) {
+    return false;
+  }
+  
+  // Allow empty or very short user agents (some executors don't send UA)
+  if (!userAgent || userAgent.length < 5) return true;
+  
+  // Default: allow (some executors use generic UAs)
+  return true;
+}
+
+// GET /api/decoder/[accessKey] - Serve decoder script (EXECUTOR ONLY)
 export async function GET(request: NextRequest, { params }: DecoderParams) {
   const { accessKey } = await params;
 
   try {
+    // 0. SECURITY: Block browsers and testing tools
+    if (!isExecutorRequest(request)) {
+      return new NextResponse(
+        generateAccessDeniedHTML({
+          title: 'Decoder Protected',
+          message: 'This endpoint is protected and can only be accessed via Roblox Executor',
+          subtitle: 'The decoder is automatically fetched by the loader script.',
+          icon: '🛡️'
+        }),
+        { 
+          status: 403,
+          headers: { 
+            'Content-Type': 'text/html; charset=utf-8',
+            'X-Robots-Tag': 'noindex, nofollow'
+          } 
+        }
+      );
+    }
+    
     // 1. Verify script exists
     const { data: script, error } = await supabase
       .from('protected_scripts')

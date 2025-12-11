@@ -13,10 +13,15 @@ export function generateEncryptionKey(accessKey: string): string {
 }
 
 // XOR encryption helper - returns byte array
+// IMPORTANT: Use UTF-8 encoding to handle obfuscated scripts with special chars
 function xorEncrypt(text: string, key: string): number[] {
+  // Convert text to UTF-8 byte array
+  const textBytes = Buffer.from(text, 'utf8');
+  const keyBytes = Buffer.from(key, 'utf8');
+  
   const result: number[] = [];
-  for (let i = 0; i < text.length; i++) {
-    result.push(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  for (let i = 0; i < textBytes.length; i++) {
+    result.push(textBytes[i] ^ keyBytes[i % keyBytes.length]);
   }
   return result;
 }
@@ -31,117 +36,109 @@ export function aesEncrypt(text: string, key: string): string {
   return CryptoJS.AES.encrypt(text, key).toString();
 }
 
-// Generate Lua decoder script - PROVEN WORKING VERSION
+// Generate Lua decoder with ENVIRONMENT CHECKS + ANTI-TAMPER + DYNAMIC KEY
 export function generateLuaDecoder(encryptedData: string, encryptionKey: string, accessKey: string): string {
-  // Convert key to byte array for Lua
-  const keyBytes = Array.from(encryptionKey).map(c => c.charCodeAt(0));
+  const halfKey = encryptionKey.substring(0, Math.floor(encryptionKey.length / 2));
+  const keyBytes = Array.from(Buffer.from(halfKey, 'utf8'));
   const keyArray = `{${keyBytes.join(',')}}`;
+  const checksum = CryptoJS.MD5(encryptionKey).toString().substring(0, 8);
+  const flag = `_SS_${accessKey.substring(0, 8)}`;
   
-  // Simple, proven decoder that works in Roblox
-  return `return function(data)
-local encrypted = data[1]
-local key = ${keyArray}
-local result = {}
-local keyLen = #key
-for i = 1, #encrypted do
-    local encByte = encrypted[i]
-    local keyByte = key[((i - 1) % keyLen) + 1]
-    table.insert(result, string.char(bit32.bxor(encByte, keyByte)))
+  // Minified decoder for production
+  return `return function(d)
+if not game or not bit32 or not loadstring then return end
+if getgenv and getgenv()._DEBUG then return end
+local f="${flag}"
+if getgenv and getgenv()[f]then return warn("Already executed")end
+local e,k=d[1],d[2]or{}
+local s=${keyArray}
+local c={}
+for i=1,#s do c[i]=s[i]end
+for i=1,#k do c[#c+1]=k[i]end
+local r,l={},#c
+if l==0 then return end
+for i=1,#e do r[i]=string.char(bit32.bxor(e[i],c[((i-1)%l)+1]))end
+local x,err=loadstring(table.concat(r))
+if x then
+if getgenv then getgenv()[f]=true end
+local ok,res=pcall(x)
+if ok then return res else if getgenv then getgenv()[f]=nil end return warn(tostring(res))end
+else return warn(tostring(err))end
 end
-local decrypted = table.concat(result)
-local func = loadstring(decrypted)
-if func then
-    return func()
-else
-    warn("[SixSense] Failed to load script")
-end
-end`;
+`;
 }
 
-// Generate encrypted loader - NEW APPROACH with byte arrays
+// Generate encrypted loader - minified for production
 export function generateEncryptedLoader(
   encryptedArray: string,
+  dynamicKeyArray: string,
   accessKey: string,
   baseUrl: string,
   requireKey: boolean
 ): string {
-  const cacheKey = CryptoJS.MD5(accessKey).toString().substring(0, 16);
+  const cacheKey = CryptoJS.MD5(accessKey + 'v3').toString().substring(0, 16);
   const decoderUrl = `${baseUrl}/api/decoder/${accessKey}`;
-  
   const watermark = `-- Protected by SixSense | ${new Date().toISOString().split('T')[0]}`;
   
   if (!requireKey) {
-    // Without key validation
+    // Without key validation - minified
     return `${watermark}
-local _DATA=${encryptedArray}
-pcall(function() delfile('${cacheKey}.lua') end)
-local _DECODER
-local _SUCCESS = pcall(function()
-    _DECODER = readfile("sixsense/${cacheKey}.lua")
-end)
-if _SUCCESS and _DECODER and #_DECODER > 100 then
-    _DECODER = loadstring(_DECODER)
-end
-if _DECODER then
-    return _DECODER()({_DATA})
-else
-    pcall(makefolder, "sixsense")
-    _DECODER = game:HttpGet("${decoderUrl}")
-    writefile("sixsense/${cacheKey}.lua", _DECODER)
-    return loadstring(_DECODER)()({_DATA})
-end`;
+local _D={{${encryptedArray}},{${dynamicKeyArray}}}
+pcall(function()delfile('sixsense/${cacheKey}.lua')end)
+pcall(makefolder,"sixsense")
+local _s=game:HttpGet("${decoderUrl}")
+local _f=loadstring(_s)
+if _f then local _r=_f()if _r then return _r(_D)end end
+return warn("[SixSense] Load failed")`;
   }
   
-  // With key validation
+  // With key validation - minified
   return `${watermark}
-local HttpService = game:GetService("HttpService")
-local KEY = (getgenv and getgenv().SIXSENSE_KEY) or _G.SIXSENSE_KEY
-if not KEY then return warn("[SixSense] No key found") end
-local success, response = pcall(function()
-    return game:HttpGet("${baseUrl}/api/validate/key?key=" .. KEY .. "&script=${accessKey}")
-end)
-if not success or not response then return warn("[SixSense] Validation failed") end
-local data = HttpService:JSONDecode(response)
-if not data.valid then return warn("[SixSense] Invalid key") end
-print("[SixSense] Validated: " .. (data.username or "User"))
-local _DATA=${encryptedArray}
-pcall(function() delfile('${cacheKey}.lua') end)
-local _DECODER
-local _SUCCESS = pcall(function()
-    _DECODER = readfile("sixsense/${cacheKey}.lua")
-end)
-if _SUCCESS and _DECODER and #_DECODER > 100 then
-    _DECODER = loadstring(_DECODER)
-end
-if _DECODER then
-    return _DECODER()({_DATA})
-else
-    pcall(makefolder, "sixsense")
-    _DECODER = game:HttpGet("${decoderUrl}")
-    writefile("sixsense/${cacheKey}.lua", _DECODER)
-    return loadstring(_DECODER)()({_DATA})
-end`;
+local H=game:GetService("HttpService")
+local K=(getgenv and getgenv().SIXSENSE_KEY)or _G.SIXSENSE_KEY
+if not K then return warn("[SixSense] No key")end
+local s,r=pcall(function()return game:HttpGet("${baseUrl}/api/validate/key?key="..K.."&script=${accessKey}")end)
+if not s or not r then return warn("[SixSense] Validation failed")end
+local d=H:JSONDecode(r)
+if not d.valid then return warn("[SixSense] "..tostring(d.error or"Invalid"))end
+print("[SixSense] ✓ "..(d.username or""))
+local _D={{${encryptedArray}},{${dynamicKeyArray}}}
+pcall(function()delfile('sixsense/${cacheKey}.lua')end)
+pcall(makefolder,"sixsense")
+local _s=game:HttpGet("${decoderUrl}")
+local _f=loadstring(_s)
+if _f then local _r=_f()if _r then return _r(_D)end end
+return warn("[SixSense] Load failed")`;
 }
 
-// Main encryption function - NEW APPROACH with byte arrays
+// Main encryption function - USES PROVIDED KEY (from database)
 export function encryptScript(
   script: string,
   accessKey: string,
   requireKey: boolean,
-  baseUrl: string
-): { loader: string; decoder: string } {
-  // Generate unique encryption key
-  const encryptionKey = generateEncryptionKey(accessKey);
+  baseUrl: string,
+  encryptionKey: string // Key from database - MUST be consistent with decoder
+): { loader: string; decoder: string; dynamicKey: string } {
+  // Use provided encryption key (from database) - ensures loader and decoder use same key
+  
+  // Split key: half in loader, half from server (use UTF-8 bytes)
+  const dynamicKeyPart = encryptionKey.substring(Math.floor(encryptionKey.length / 2));
+  const dynamicKeyBytes = Array.from(Buffer.from(dynamicKeyPart, 'utf8'));
   
   // Encrypt script content with XOR - returns byte array
   const encrypted = xorEncrypt(script, encryptionKey);
-  const encryptedArray = toLuaArray(encrypted);
   
-  // Generate decoder
+  // Generate decoder (with env checks + anti-tamper)
   const decoder = generateLuaDecoder('', encryptionKey, accessKey);
   
-  // Generate loader
-  const loader = generateEncryptedLoader(encryptedArray, accessKey, baseUrl, requireKey);
+  // Generate loader (with dynamic key) - pass raw arrays, not strings
+  const loader = generateEncryptedLoader(
+    encrypted.join(','),
+    dynamicKeyBytes.join(','),
+    accessKey, 
+    baseUrl, 
+    requireKey
+  );
   
-  return { loader, decoder };
+  return { loader, decoder, dynamicKey: dynamicKeyPart };
 }
