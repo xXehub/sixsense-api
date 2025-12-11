@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Settings, Save, Globe, Shield, Bell, Database, Key, Webhook,
   ToggleLeft, ToggleRight, Eye, EyeOff, RefreshCw, Copy, Check
@@ -10,6 +10,9 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const [showApiKey, setShowApiKey] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [devBypassEnabled, setDevBypassEnabled] = useState(false);
+  const [devBypassLoading, setDevBypassLoading] = useState(false);
+  const [isDevelopment, setIsDevelopment] = useState(false);
   
   const [settings, setSettings] = useState({
     siteName: 'sixsense',
@@ -26,9 +29,54 @@ export default function SettingsPage() {
     webhookUrl: 'xxx',
   });
 
+  // Fetch dev bypass status on mount
+  const fetchDevBypassStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/settings/dev-bypass');
+      const data = await res.json();
+      if (data.success) {
+        setDevBypassEnabled(data.enabled);
+        setIsDevelopment(data.isDevelopment);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dev bypass status:', err);
+    }
+  };
+
+  // Toggle dev bypass
+  const toggleDevBypass = async () => {
+    setDevBypassLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings/dev-bypass', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !devBypassEnabled })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDevBypassEnabled(data.enabled);
+        if (data.requiresRestart) {
+          alert('✓ Dev bypass updated!\n\nPlease restart your dev server:\n1. Stop server (Ctrl+C)\n2. Run: npm run dev');
+        }
+      } else {
+        alert('Failed to toggle dev bypass: ' + (data.message || data.error));
+      }
+    } catch (err) {
+      alert('Error: ' + String(err));
+    } finally {
+      setDevBypassLoading(false);
+    }
+  };
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchDevBypassStatus();
+  }, []);
+
   const tabs = [
     { key: 'general', label: 'General', icon: Globe },
     { key: 'security', label: 'Security', icon: Shield },
+    { key: 'developer', label: 'Developer', icon: Settings },
     { key: 'notifications', label: 'Notifications', icon: Bell },
     { key: 'api', label: 'API Keys', icon: Key },
   ];
@@ -217,6 +265,106 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Developer Settings */}
+          {activeTab === 'developer' && (
+            <div className="p-6 space-y-6">
+              <div className="border-b border-[#1a1a1a] pb-4">
+                <h3 className="text-base font-semibold text-white">Developer Settings</h3>
+                <p className="text-sm text-gray-400 mt-1">Testing and development configuration</p>
+              </div>
+
+              <div className="space-y-5">
+                {/* Environment Info */}
+                <div className="p-4 bg-[#0a0a0a] rounded-md border border-[#222]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-300">Environment</span>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                      isDevelopment 
+                        ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' 
+                        : 'bg-green-500/10 text-green-400 border border-green-500/20'
+                    }`}>
+                      {isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {isDevelopment 
+                      ? 'Running in development mode (localhost)' 
+                      : 'Running in production mode'}
+                  </p>
+                </div>
+
+                {/* Dev Bypass Toggle */}
+                <div className="flex items-center justify-between py-3 border-t border-[#1a1a1a]">
+                  <div>
+                    <p className="text-sm font-medium text-white">Development Bypass Mode</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Allow scripts to be loaded without key validation using ?bypass=dev parameter
+                    </p>
+                    {!isDevelopment && (
+                      <p className="text-xs text-amber-400 mt-1">
+                        ⚠️ Only available in development mode
+                      </p>
+                    )}
+                    {isDevelopment && devBypassEnabled && (
+                      <p className="text-xs text-primary mt-1">
+                        ✓ Active - Use ?bypass=dev in script URLs for testing
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={toggleDevBypass}
+                    disabled={!isDevelopment || devBypassLoading}
+                    className={`p-1 rounded-md transition-colors ${
+                      !isDevelopment 
+                        ? 'text-gray-600 cursor-not-allowed' 
+                        : devBypassEnabled 
+                          ? 'text-primary' 
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {devBypassLoading ? (
+                      <RefreshCw className="h-8 w-8 animate-spin" />
+                    ) : devBypassEnabled ? (
+                      <ToggleRight className="h-8 w-8" />
+                    ) : (
+                      <ToggleLeft className="h-8 w-8" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Usage Instructions */}
+                {isDevelopment && (
+                  <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-md">
+                    <h4 className="text-sm font-semibold text-amber-400 mb-2">ℹ️ How to Use Dev Bypass</h4>
+                    <div className="space-y-2 text-xs text-gray-300">
+                      <p><strong>When ENABLED:</strong></p>
+                      <code className="block p-2 bg-[#0a0a0a] rounded text-xs text-primary">
+                        loadstring(game:HttpGet("http://localhost:3000/api/script/xxx?bypass=dev"))()
+                      </code>
+                      <p className="text-gray-400 mt-2">Script will load without checking license key.</p>
+                      
+                      <p className="mt-3"><strong>When DISABLED (Production Mode):</strong></p>
+                      <code className="block p-2 bg-[#0a0a0a] rounded text-xs text-primary">
+                        _G.SIXSENSE_KEY = "SIX-XXXX-XXXX-XXXX"{'\n'}
+                        loadstring(game:HttpGet("http://localhost:3000/api/script/xxx"))()
+                      </code>
+                      <p className="text-gray-400 mt-2">User must provide valid license key.</p>
+
+                      <div className="mt-3 pt-3 border-t border-amber-500/20">
+                        <p className="text-amber-400 font-medium">⚠️ Important:</p>
+                        <ul className="list-disc list-inside mt-1 space-y-1 text-gray-400">
+                          <li>Dev bypass only works on localhost</li>
+                          <li>Automatically disabled in production</li>
+                          <li>Restart server after toggling</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

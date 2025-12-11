@@ -24,7 +24,8 @@ import {
   History,
   Zap,
   Crown,
-  Star
+  Star,
+  Code
 } from 'lucide-react';
 
 interface MenuItem {
@@ -63,6 +64,11 @@ const menuItems: MenuItem[] = [
     name: 'Games', 
     href: '/x-admin-panel/games', 
     icon: Gamepad2,
+  },
+  { 
+    name: 'Protected Scripts', 
+    href: '/x-admin-panel/scripts', 
+    icon: Code,
   },
   { 
     name: 'Analytics', 
