@@ -36,12 +36,25 @@ export function aesEncrypt(text: string, key: string): string {
   return CryptoJS.AES.encrypt(text, key).toString();
 }
 
-// Generate Lua decoder with ENVIRONMENT CHECKS + ANTI-TAMPER + DYNAMIC KEY
-export function generateLuaDecoder(encryptedData: string, encryptionKey: string, accessKey: string): string {
+// Generate Lua decoder with ENVIRONMENT CHECKS + ANTI-TAMPER + DYNAMIC KEY + KEY VALIDATION
+export function generateLuaDecoder(encryptedData: string, encryptionKey: string, accessKey: string, baseUrl: string, requireKey: boolean): string {
   const halfKey = encryptionKey.substring(0, Math.floor(encryptionKey.length / 2));
   const keyBytes = Array.from(Buffer.from(halfKey, 'utf8'));
   const keyArray = `{${keyBytes.join(',')}}`;
   const flag = `_SIXSENSE_${accessKey.substring(0, 8)}`;
+  
+  const validationCode = requireKey ? `
+local HttpService = game:GetService("HttpService")
+local KEY = (getgenv and getgenv().SIXSENSE_KEY) or _G.SIXSENSE_KEY
+if not KEY then return warn("[SixSense] No key found") end
+local success, response = pcall(function()
+    return game:HttpGet("${baseUrl}/api/validate/key?key=" .. KEY .. "&script=${accessKey}")
+end)
+if not success or not response then return warn("[SixSense] Validation failed") end
+local valid_data = HttpService:JSONDecode(response)
+if not valid_data.valid then return warn("[SixSense] Invalid key: " .. tostring(valid_data.error or "Unknown")) end
+print("[SixSense] ✓ " .. tostring(valid_data.username or "User"))
+` : '';
   
   return `return function(data)
 if not game or not bit32 or not loadstring then return end
@@ -49,7 +62,7 @@ if getgenv and getgenv()._DEBUG then return end
 local flag = "${flag}"
 if getgenv and getgenv()[flag] then 
     return warn("[SixSense] Script already executed") 
-end
+end${validationCode}
 local encrypted = data[1]
 local dynamic_key = data[2] or {}
 local static_key = ${keyArray}
@@ -92,46 +105,38 @@ export function generateEncryptedLoader(
   requireKey: boolean
 ): string {
   const cacheKey = CryptoJS.MD5(accessKey + 'v3').toString().substring(0, 16);
-  const decoderUrl = `${baseUrl}/api/decoder/${accessKey}`;
+  const resourceUrl = `${baseUrl}/api/resource/${accessKey}`;
   const watermark = `-- Protected by SixSense | ${new Date().toISOString().split('T')[0]}`;
   
-  if (!requireKey) {
-    // Without key validation
-    return `${watermark}
-local _DATA = {{${encryptedArray}}, {${dynamicKeyArray}}}
-pcall(function() delfile('sixsense/${cacheKey}.lua') end)
-pcall(makefolder, "sixsense")
-local decoder_str = game:HttpGet("${decoderUrl}")
-local decoder_func = loadstring(decoder_str)
-if decoder_func then
-    local decoder = decoder_func()
-    if decoder then return decoder(_DATA) end
-end
-return warn("[SixSense] Failed to load decoder")`;
-  }
+  // Obfuscated variable names to make it harder to understand
+  const varNames = {
+    data: '_DATA',
+    response: '_R',
+    handler: '_H',
+    processor: '_P'
+  };
   
-  // With key validation
   return `${watermark}
-local HttpService = game:GetService("HttpService")
-local KEY = (getgenv and getgenv().SIXSENSE_KEY) or _G.SIXSENSE_KEY
-if not KEY then return warn("[SixSense] No key found") end
-local success, response = pcall(function()
-    return game:HttpGet("${baseUrl}/api/validate/key?key=" .. KEY .. "&script=${accessKey}")
-end)
-if not success or not response then return warn("[SixSense] Validation failed") end
-local data = HttpService:JSONDecode(response)
-if not data.valid then return warn("[SixSense] Invalid key: " .. (data.error or "Unknown")) end
-print("[SixSense] ✓ " .. (data.username or "User"))
-local _DATA = {{${encryptedArray}}, {${dynamicKeyArray}}}
+--  ██████  ██▓▒██   ██▒  ██████ ▓█████  ███▄    █   ██████ ▓█████ 
+-- ▒██    ▒ ▓██▒▒▒ █ █ ▒░▒██    ▒ ▓█   ▀  ██ ▀█   █ ▒██    ▒ ▓█   ▀ 
+-- ░ ▓██▄   ▒██▒░░  █   ░░ ▓██▄   ▒███   ▓██  ▀█ ██▒░ ▓██▄   ▒███   
+--  ▒   ██▒░██░ ░ █ █ ▒   ▒   ██▒▒▓█  ▄ ▓██▒  ▐▌██▒  ▒   ██▒▒▓█  ▄ 
+--▒██████▒▒░██░▒██▒ ▒██▒▒██████▒▒░▒████▒▒██░   ▓██░▒██████▒▒░▒████▒
+--▒ ▒▓▒ ▒ ░░▓  ▒▒ ░ ░▓ ░▒ ▒▓▒ ▒ ░░░ ▒░ ░░ ▒░   ▒ ▒ ▒ ▒▓▒ ▒ ░░░ ▒░ ░
+--░ ░▒  ░ ░ ▒ ░░░   ░▒ ░░ ░▒  ░ ░ ░ ░  ░░ ░░   ░ ▒░░ ░▒  ░ ░ ░ ░  ░
+--░  ░  ░   ▒ ░ ░    ░  ░  ░  ░     ░      ░   ░ ░ ░  ░  ░     ░   
+--      ░   ░   ░    ░        ░     ░  ░         ░       ░     ░  ░
+                                                                 
+local ${varNames.data} = {{${encryptedArray}}, {${dynamicKeyArray}}}
 pcall(function() delfile('sixsense/${cacheKey}.lua') end)
 pcall(makefolder, "sixsense")
-local decoder_str = game:HttpGet("${decoderUrl}")
-local decoder_func = loadstring(decoder_str)
-if decoder_func then
-    local decoder = decoder_func()
-    if decoder then return decoder(_DATA) end
+local ${varNames.response} = game:HttpGet("${resourceUrl}")
+local ${varNames.handler} = loadstring(${varNames.response})
+if ${varNames.handler} then
+    local ${varNames.processor} = ${varNames.handler}()
+    if ${varNames.processor} then return ${varNames.processor}(${varNames.data}) end
 end
-return warn("[SixSense] Failed to load decoder")`;
+return warn("[sixsense] Failed to load")`;
 }
 
 // Main encryption function - USES PROVIDED KEY (from database)
@@ -151,8 +156,8 @@ export function encryptScript(
   // Encrypt script content with XOR - returns byte array
   const encrypted = xorEncrypt(script, encryptionKey);
   
-  // Generate decoder (with env checks + anti-tamper)
-  const decoder = generateLuaDecoder('', encryptionKey, accessKey);
+  // Generate decoder (with env checks + anti-tamper + key validation)
+  const decoder = generateLuaDecoder('', encryptionKey, accessKey, baseUrl, requireKey);
   
   // Generate loader (with dynamic key) - pass raw arrays, not strings
   const loader = generateEncryptedLoader(

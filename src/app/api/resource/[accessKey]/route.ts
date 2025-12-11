@@ -56,7 +56,7 @@ function isExecutorRequest(request: NextRequest): boolean {
   return true;
 }
 
-// GET /api/decoder/[accessKey] - Serve decoder script (EXECUTOR ONLY)
+// GET /api/resource/[accessKey] - Serve resource script (EXECUTOR ONLY)
 export async function GET(request: NextRequest, { params }: DecoderParams) {
   const { accessKey } = await params;
 
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
         generateAccessDeniedHTML({
           title: 'Access Denied',
           message: 'You dont have permission to access this resource.',
-          subtitle: '1337 elhubski only',
+          subtitle: '1337 elhub5k1 only',
           icon: '🔐'
         }),
         { 
@@ -80,17 +80,17 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
       );
     }
     
-    // 1. Verify script exists
+    // 1. Verify script exists and get require_key flag
     const { data: script, error } = await supabase
       .from('protected_scripts')
-      .select('id, access_key, encryption_key')
+      .select('id, access_key, encryption_key, require_key')
       .eq('access_key', accessKey)
       .eq('is_active', true)
       .single();
 
     if (error || !script) {
       return new NextResponse(
-        '-- Decoder not found\nreturn function() warn("[SixSense] Invalid decoder request") end',
+        '-- Resource not found\nreturn function() warn("[SixSense] Invalid resource request") end',
         { 
           status: 200, 
           headers: { 'Content-Type': 'text/plain' } 
@@ -114,10 +114,9 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
         .eq('id', script.id);
     }
 
-    // 3. Generate decoder script
-    // Note: The decoder doesn't need the encrypted data, 
-    // that's passed by the loader
-    const decoder = generateLuaDecoder('', encryptionKey, accessKey);
+    // 3. Generate decoder script with key validation (if required)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+    const decoder = generateLuaDecoder('', encryptionKey, accessKey, baseUrl, script.require_key || false);
 
     // 4. Return decoder with cache headers
     return new NextResponse(decoder, {
@@ -130,9 +129,9 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
     });
 
   } catch (error) {
-    console.error('Decoder serve error:', error);
+    console.error('Resource serve error:', error);
     return new NextResponse(
-      '-- Decoder error\nreturn function() warn("[SixSense] Decoder error") end',
+      '-- Resource error\nreturn function() warn("[SixSense] Resource error") end',
       { 
         status: 200, 
         headers: { 'Content-Type': 'text/plain' } 
