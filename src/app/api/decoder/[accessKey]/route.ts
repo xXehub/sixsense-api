@@ -65,10 +65,10 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
     if (!isExecutorRequest(request)) {
       return new NextResponse(
         generateAccessDeniedHTML({
-          title: 'Decoder Protected',
-          message: 'This endpoint is protected and can only be accessed via Roblox Executor',
-          subtitle: 'The decoder is automatically fetched by the loader script.',
-          icon: '🛡️'
+          title: 'Access Denied',
+          message: 'You dont have permission to access this resource.',
+          subtitle: '1337 elhubski only',
+          icon: '🔐'
         }),
         { 
           status: 403,

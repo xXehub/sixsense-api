@@ -41,34 +41,49 @@ export function generateLuaDecoder(encryptedData: string, encryptionKey: string,
   const halfKey = encryptionKey.substring(0, Math.floor(encryptionKey.length / 2));
   const keyBytes = Array.from(Buffer.from(halfKey, 'utf8'));
   const keyArray = `{${keyBytes.join(',')}}`;
-  const checksum = CryptoJS.MD5(encryptionKey).toString().substring(0, 8);
-  const flag = `_SS_${accessKey.substring(0, 8)}`;
+  const flag = `_SIXSENSE_${accessKey.substring(0, 8)}`;
   
-  // Minified decoder for production
-  return `return function(d)
+  return `return function(data)
 if not game or not bit32 or not loadstring then return end
 if getgenv and getgenv()._DEBUG then return end
-local f="${flag}"
-if getgenv and getgenv()[f]then return warn("Already executed")end
-local e,k=d[1],d[2]or{}
-local s=${keyArray}
-local c={}
-for i=1,#s do c[i]=s[i]end
-for i=1,#k do c[#c+1]=k[i]end
-local r,l={},#c
-if l==0 then return end
-for i=1,#e do r[i]=string.char(bit32.bxor(e[i],c[((i-1)%l)+1]))end
-local x,err=loadstring(table.concat(r))
-if x then
-if getgenv then getgenv()[f]=true end
-local ok,res=pcall(x)
-if ok then return res else if getgenv then getgenv()[f]=nil end return warn(tostring(res))end
-else return warn(tostring(err))end
+local flag = "${flag}"
+if getgenv and getgenv()[flag] then 
+    return warn("[SixSense] Script already executed") 
+end
+local encrypted = data[1]
+local dynamic_key = data[2] or {}
+local static_key = ${keyArray}
+local full_key = {}
+for i = 1, #static_key do
+    full_key[i] = static_key[i]
+end
+for i = 1, #dynamic_key do
+    full_key[#full_key + 1] = dynamic_key[i]
+end
+local result = {}
+local key_len = #full_key
+if key_len == 0 then return end
+for i = 1, #encrypted do
+    result[i] = string.char(bit32.bxor(encrypted[i], full_key[((i - 1) % key_len) + 1]))
+end
+local func, err = loadstring(table.concat(result))
+if func then
+    if getgenv then getgenv()[flag] = true end
+    local success, res = pcall(func)
+    if success then 
+        return res 
+    else 
+        if getgenv then getgenv()[flag] = nil end 
+        return warn("[SixSense] Script error: " .. tostring(res))
+    end
+else 
+    return warn("[SixSense] Decode error: " .. tostring(err))
+end
 end
 `;
 }
 
-// Generate encrypted loader - minified for production
+// Generate encrypted loader - compact but readable
 export function generateEncryptedLoader(
   encryptedArray: string,
   dynamicKeyArray: string,
@@ -81,34 +96,42 @@ export function generateEncryptedLoader(
   const watermark = `-- Protected by SixSense | ${new Date().toISOString().split('T')[0]}`;
   
   if (!requireKey) {
-    // Without key validation - minified
+    // Without key validation
     return `${watermark}
-local _D={{${encryptedArray}},{${dynamicKeyArray}}}
-pcall(function()delfile('sixsense/${cacheKey}.lua')end)
-pcall(makefolder,"sixsense")
-local _s=game:HttpGet("${decoderUrl}")
-local _f=loadstring(_s)
-if _f then local _r=_f()if _r then return _r(_D)end end
-return warn("[SixSense] Load failed")`;
+local _DATA = {{${encryptedArray}}, {${dynamicKeyArray}}}
+pcall(function() delfile('sixsense/${cacheKey}.lua') end)
+pcall(makefolder, "sixsense")
+local decoder_str = game:HttpGet("${decoderUrl}")
+local decoder_func = loadstring(decoder_str)
+if decoder_func then
+    local decoder = decoder_func()
+    if decoder then return decoder(_DATA) end
+end
+return warn("[SixSense] Failed to load decoder")`;
   }
   
-  // With key validation - minified
+  // With key validation
   return `${watermark}
-local H=game:GetService("HttpService")
-local K=(getgenv and getgenv().SIXSENSE_KEY)or _G.SIXSENSE_KEY
-if not K then return warn("[SixSense] No key")end
-local s,r=pcall(function()return game:HttpGet("${baseUrl}/api/validate/key?key="..K.."&script=${accessKey}")end)
-if not s or not r then return warn("[SixSense] Validation failed")end
-local d=H:JSONDecode(r)
-if not d.valid then return warn("[SixSense] "..tostring(d.error or"Invalid"))end
-print("[SixSense] ✓ "..(d.username or""))
-local _D={{${encryptedArray}},{${dynamicKeyArray}}}
-pcall(function()delfile('sixsense/${cacheKey}.lua')end)
-pcall(makefolder,"sixsense")
-local _s=game:HttpGet("${decoderUrl}")
-local _f=loadstring(_s)
-if _f then local _r=_f()if _r then return _r(_D)end end
-return warn("[SixSense] Load failed")`;
+local HttpService = game:GetService("HttpService")
+local KEY = (getgenv and getgenv().SIXSENSE_KEY) or _G.SIXSENSE_KEY
+if not KEY then return warn("[SixSense] No key found") end
+local success, response = pcall(function()
+    return game:HttpGet("${baseUrl}/api/validate/key?key=" .. KEY .. "&script=${accessKey}")
+end)
+if not success or not response then return warn("[SixSense] Validation failed") end
+local data = HttpService:JSONDecode(response)
+if not data.valid then return warn("[SixSense] Invalid key: " .. (data.error or "Unknown")) end
+print("[SixSense] ✓ " .. (data.username or "User"))
+local _DATA = {{${encryptedArray}}, {${dynamicKeyArray}}}
+pcall(function() delfile('sixsense/${cacheKey}.lua') end)
+pcall(makefolder, "sixsense")
+local decoder_str = game:HttpGet("${decoderUrl}")
+local decoder_func = loadstring(decoder_str)
+if decoder_func then
+    local decoder = decoder_func()
+    if decoder then return decoder(_DATA) end
+end
+return warn("[SixSense] Failed to load decoder")`;
 }
 
 // Main encryption function - USES PROVIDED KEY (from database)

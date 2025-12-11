@@ -122,9 +122,9 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
       // Return styled Access Denied page for browsers
       return new NextResponse(
         generateAccessDeniedHTML({
-          title: 'Script Protected',
-          message: 'This script can only be loaded via Roblox Executor',
-          subtitle: 'Use loadstring(game:HttpGet(url))() in your executor to run this script.',
+          title: 'Access Denied',
+          message: 'You dont have permission to access this resource.',
+          subtitle: '1337 elhub5k1 only',
           icon: '🔐'
         }),
         {

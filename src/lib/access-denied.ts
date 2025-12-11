@@ -227,7 +227,7 @@ export function generateAccessDeniedHTML(options: AccessDeniedOptions = {}): str
     <p class="subtitle">${subtitle}</p>
     ${showHomeButton ? `<a href="${baseUrl}" class="btn">← Back to Home</a>` : ''}
     <div class="footer">
-      <p>🔒 Protected by <strong>SixSense</strong></p>
+      <p> protected by <strong>sixsense</strong></p>
     </div>
   </div>
 </body>
