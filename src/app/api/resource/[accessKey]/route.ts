@@ -115,7 +115,7 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
     }
 
     // 3. Generate decoder script with key validation (if required)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
     const decoder = generateLuaDecoder('', encryptionKey, accessKey, baseUrl, script.require_key || false);
 
     // 4. Return decoder with cache headers

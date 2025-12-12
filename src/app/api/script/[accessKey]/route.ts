@@ -216,7 +216,7 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
     await logScriptLoad(accessKey, request, executorName, hwid, playerId, playerName, gameId, providedKey, true, null);
 
     // 9. Return encrypted script (ALWAYS ENCRYPT PLAINTEXT, NO DEV BYPASS)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     // CRITICAL: ALWAYS use runtime validation if require_key is true (no dev bypass)
     const useRuntimeValidation = script.require_key;
     
