@@ -84,10 +84,10 @@ async function generateKey(duration: number, discordId: string, provider: string
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   try {
-    const { provider } = params;
+    const { provider } = await params;
     const { searchParams } = new URL(request.url);
     
     const sessionId = searchParams.get('session') || searchParams.get('sr');
@@ -241,10 +241,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   try {
-    const { provider } = params;
+    const { provider } = await params;
     const body = await request.json();
     
     const sessionId = body.session || body.sr || body.session_id;

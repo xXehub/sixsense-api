@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Key, ExternalLink, CheckCircle, Loader2, AlertCircle, Shield, Clipboard } from 'lucide-react';
 
 type FlowStep = 'start' | 'link_ready' | 'completed';
 
-export default function PlatoboostPage() {
+function PlatoboostContent() {
   const searchParams = useSearchParams();
   const discord_id = searchParams.get('discord_id');
   
@@ -216,5 +216,17 @@ export default function PlatoboostPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PlatoboostPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
+      </div>
+    }>
+      <PlatoboostContent />
+    </Suspense>
   );
 }
