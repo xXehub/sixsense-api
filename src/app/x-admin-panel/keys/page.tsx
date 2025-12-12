@@ -32,6 +32,8 @@ export default function KeysPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedKey, setSelectedKey] = useState<LicenseKey | null>(null);
 
   // Fetch keys from API
   const fetchKeys = async () => {
@@ -60,6 +62,25 @@ export default function KeysPage() {
   useEffect(() => {
     fetchKeys();
   }, []);
+
+  const handleDeleteKey = async (keyId: string, keyValue: string) => {
+    if (!confirm(`Are you sure you want to delete key "${keyValue}"?`)) return;
+    
+    try {
+      const res = await fetch(`/api/admin/keys/${keyId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to delete key');
+      }
+      
+      await fetchKeys();
+    } catch (err) {
+      console.error('Delete key error:', err);
+      alert('Failed to delete key');
+    }
+  };
 
   // Calculate stats from real data
   const activeKeys = keys.filter(k => k.is_active && (!k.expires_at || new Date(k.expires_at) > new Date())).length;
@@ -130,7 +151,13 @@ export default function KeysPage() {
           <h1 className="text-xl font-bold text-white">License Keys</h1>
           <p className="text-sm text-gray-400 mt-1">Manage and generate license keys</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90 transition-colors">
+        <button 
+          onClick={() => {
+            setSelectedKey(null);
+            setShowModal(true);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90 transition-colors"
+        >
           <Plus className="h-4 w-4" />
           Generate Key
         </button>
@@ -301,10 +328,17 @@ export default function KeysPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-1.5 rounded text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
+                      <button 
+                        className="p-1.5 rounded text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                        title="Reset HWID"
+                      >
                         <RefreshCw className="h-3.5 w-3.5" />
                       </button>
-                      <button className="p-1.5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                      <button 
+                        onClick={() => handleDeleteKey(k.id, k.key_value)}
+                        className="p-1.5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Delete key"
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -349,6 +383,210 @@ export default function KeysPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Key Form Modal */}
+      {showModal && (
+        <KeyFormModal
+          licenseKey={selectedKey}
+          onClose={() => {
+            setShowModal(false);
+            setSelectedKey(null);
+          }}
+          onSuccess={() => {
+            setShowModal(false);
+            setSelectedKey(null);
+            fetchKeys();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Key Form Modal Component
+function KeyFormModal({ licenseKey, onClose, onSuccess }: { licenseKey: LicenseKey | null; onClose: () => void; onSuccess: () => void }) {
+  const [formData, setFormData] = useState({
+    key_type: licenseKey?.key_type || 'lifetime',
+    duration_days: licenseKey?.expires_at ? Math.ceil((new Date(licenseKey.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0,
+    is_active: licenseKey?.is_active ?? true,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ key_value: string } | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (licenseKey) {
+        // Update existing key
+        const res = await fetch(`/api/admin/keys/${licenseKey.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            is_active: formData.is_active,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || data.message || 'Failed to update key');
+        }
+
+        onSuccess();
+      } else {
+        // Generate new key
+        const res = await fetch('/api/admin/keys/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key_type: formData.key_type,
+            duration_days: formData.key_type === 'lifetime' ? null : formData.duration_days,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || data.message || 'Failed to generate key');
+        }
+
+        setResult(data.key);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save key');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="bg-[#111] border border-[#1a1a1a] rounded-lg w-full max-w-lg">
+          <div className="p-6 border-b border-[#1a1a1a]">
+            <h2 className="text-lg font-bold text-white">Key Generated!</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">License Key:</label>
+              <div className="relative">
+                <code className="block p-4 bg-[#0a0a0a] rounded-md text-sm text-primary font-mono break-all">
+                  {result.key_value}
+                </code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(result.key_value)}
+                  className="absolute top-2 right-2 p-2 bg-[#1a1a1a] rounded text-gray-400 hover:text-white"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">
+              Save this key - it won't be shown again!
+            </p>
+          </div>
+          <div className="p-6 border-t border-[#1a1a1a] flex justify-end">
+            <button
+              onClick={onSuccess}
+              className="px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#111] border border-[#1a1a1a] rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-[#1a1a1a] flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">{licenseKey ? 'Edit Key' : 'Generate Key'}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="p-6 space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+            
+            {!licenseKey && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Key Type *</label>
+                  <select
+                    value={formData.key_type}
+                    onChange={(e) => setFormData({ ...formData, key_type: e.target.value })}
+                    required
+                    className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md text-white text-sm focus:outline-none focus:border-primary/50"
+                  >
+                    <option value="lifetime">Lifetime</option>
+                    <option value="monthly">Monthly (30 days)</option>
+                    <option value="weekly">Weekly (7 days)</option>
+                    <option value="daily">Daily (1 day)</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+
+                {formData.key_type === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Duration (days) *</label>
+                    <input
+                      type="number"
+                      value={formData.duration_days}
+                      onChange={(e) => setFormData({ ...formData, duration_days: parseInt(e.target.value) })}
+                      required
+                      min="1"
+                      placeholder="30"
+                      className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md text-white text-sm focus:outline-none focus:border-primary/50"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {licenseKey && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="w-4 h-4 rounded border-[#333] bg-[#0a0a0a] text-primary focus:ring-primary focus:ring-offset-0"
+                />
+                <label htmlFor="is_active" className="text-sm text-gray-300 cursor-pointer">
+                  Key is active
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 border-t border-[#1a1a1a] flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-[#1a1a1a] text-gray-300 text-sm font-medium rounded-md hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {licenseKey ? 'Update Key' : 'Generate Key'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

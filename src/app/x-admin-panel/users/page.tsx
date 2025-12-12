@@ -25,6 +25,8 @@ export default function UsersPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Fetch users from API
   const fetchUsers = async () => {
@@ -52,6 +54,25 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleDeleteUser = async (userId: string, username: string) => {
+    if (!confirm(`Are you sure you want to delete user "${username}"?`)) return;
+    
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to delete user');
+      }
+      
+      await fetchUsers();
+    } catch (err) {
+      console.error('Delete user error:', err);
+      alert('Failed to delete user');
+    }
+  };
 
   // Calculate stats from real data
   const totalUsers = users.length;
@@ -85,7 +106,13 @@ export default function UsersPage() {
           <h1 className="text-xl font-bold text-white">Users</h1>
           <p className="text-sm text-gray-400 mt-1">Manage all registered users</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90 transition-colors">
+        <button 
+          onClick={() => {
+            setSelectedUser(null);
+            setShowModal(true);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90 transition-colors"
+        >
           <UserPlus className="h-4 w-4" />
           Add User
         </button>
@@ -248,13 +275,27 @@ export default function UsersPage() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-colors">
+                      <button 
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowModal(true);
+                        }}
+                        className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-[#1a1a1a] transition-colors"
+                        title="Edit user"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className="p-2 rounded-md text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
+                      <button 
+                        className="p-2 rounded-md text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                        title="Ban user"
+                      >
                         <Ban className="h-4 w-4" />
                       </button>
-                      <button className="p-2 rounded-md text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                      <button 
+                        onClick={() => handleDeleteUser(user.id, user.discord_username)}
+                        className="p-2 rounded-md text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Delete user"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -299,6 +340,157 @@ export default function UsersPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* User Form Modal */}
+      {showModal && (
+        <UserFormModal
+          user={selectedUser}
+          onClose={() => {
+            setShowModal(false);
+            setSelectedUser(null);
+          }}
+          onSuccess={() => {
+            setShowModal(false);
+            setSelectedUser(null);
+            fetchUsers();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// User Form Modal Component
+function UserFormModal({ user, onClose, onSuccess }: { user: User | null; onClose: () => void; onSuccess: () => void }) {
+  const [formData, setFormData] = useState({
+    discord_id: user?.discord_id || '',
+    discord_username: user?.discord_username || '',
+    is_banned: user?.is_banned ?? false,
+    ban_reason: user?.ban_reason || '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const url = user ? `/api/admin/users/${user.id}` : '/api/admin/users';
+      const method = user ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          discord_id: formData.discord_id,
+          discord_username: formData.discord_username,
+          is_banned: formData.is_banned,
+          ban_reason: formData.ban_reason || null,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || data.message || 'Failed to save user');
+      }
+
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#111] border border-[#1a1a1a] rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-[#1a1a1a] flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">{user ? 'Edit User' : 'Add User'}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="p-6 space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Discord ID *</label>
+              <input
+                type="text"
+                value={formData.discord_id}
+                onChange={(e) => setFormData({ ...formData, discord_id: e.target.value })}
+                required
+                placeholder="123456789012345678"
+                disabled={!!user}
+                className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md text-white text-sm focus:outline-none focus:border-primary/50 disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Discord Username *</label>
+              <input
+                type="text"
+                value={formData.discord_username}
+                onChange={(e) => setFormData({ ...formData, discord_username: e.target.value })}
+                required
+                placeholder="username"
+                className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md text-white text-sm focus:outline-none focus:border-primary/50"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_banned"
+                checked={formData.is_banned}
+                onChange={(e) => setFormData({ ...formData, is_banned: e.target.checked })}
+                className="w-4 h-4 rounded border-[#333] bg-[#0a0a0a] text-primary focus:ring-primary focus:ring-offset-0"
+              />
+              <label htmlFor="is_banned" className="text-sm text-gray-300 cursor-pointer">
+                Ban this user
+              </label>
+            </div>
+
+            {formData.is_banned && (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Ban Reason</label>
+                <textarea
+                  value={formData.ban_reason}
+                  onChange={(e) => setFormData({ ...formData, ban_reason: e.target.value })}
+                  rows={3}
+                  placeholder="Reason for ban..."
+                  className="w-full px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md text-white text-sm focus:outline-none focus:border-primary/50 resize-none"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 border-t border-[#1a1a1a] flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-[#1a1a1a] text-gray-300 text-sm font-medium rounded-md hover:text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-primary text-black text-sm font-semibold rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {user ? 'Update User' : 'Create User'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
