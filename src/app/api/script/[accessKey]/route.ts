@@ -220,7 +220,11 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
     await logScriptLoad(accessKey, request, executorName, hwid, playerId, playerName, gameId, providedKey, true, null);
 
     // 9. Return encrypted script (ALWAYS ENCRYPT PLAINTEXT, NO DEV BYPASS)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    // Get base URL dynamically from request or environment
+    const protocol = request.headers.get('x-forwarded-proto') || (isDevelopment ? 'http' : 'https');
+    const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
+    
     // CRITICAL: ALWAYS use runtime validation if require_key is true (no dev bypass)
     const useRuntimeValidation = script.require_key;
     
