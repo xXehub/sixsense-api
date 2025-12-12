@@ -225,6 +225,13 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
     const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
     
+    console.log(`[Script] BaseURL for ${accessKey}:`, {
+      env: process.env.NEXT_PUBLIC_APP_URL || 'not set',
+      host: host || 'not found',
+      protocol,
+      final: baseUrl
+    });
+    
     // CRITICAL: ALWAYS use runtime validation if require_key is true (no dev bypass)
     const useRuntimeValidation = script.require_key;
     

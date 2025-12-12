@@ -125,6 +125,13 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
     const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
     
+    console.log(`[Resource] BaseURL for ${accessKey}:`, {
+      env: process.env.NEXT_PUBLIC_APP_URL || 'not set',
+      host: host || 'not found',
+      protocol,
+      final: baseUrl
+    });
+    
     const decoder = generateLuaDecoder('', encryptionKey, accessKey, baseUrl, script.require_key || false);
 
     // 4. Return decoder with cache headers
