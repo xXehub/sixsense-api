@@ -9,7 +9,8 @@ const EXECUTOR_PATTERNS = [
   'roblox', 'synapse', 'script-ware', 'scriptware', 'krnl', 
   'fluxus', 'oxygen', 'hydrogen', 'electron', 'evon',
   'arceus', 'comet', 'delta', 'trigon', 'vega',
-  'httpget', 'syn', 'http_request', 'request'
+  'httpget', 'syn', 'http_request', 'request',
+  'robloxstudio', 'rbxstudio' // Roblox Studio
 ];
 
 // Browser user agents to block
@@ -152,11 +153,14 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
       .single();
 
     if (error || !script) {
+      console.log(`[Script] Script not found: ${accessKey}`, error);
       return new NextResponse(
         `-- Script not found or inactive\nreturn nil`,
         { status: 200, headers: { 'Content-Type': 'text/plain' } }
       );
     }
+    
+    console.log(`[Script] Loading script: ${accessKey}, name: ${script.name}`);
 
     // 3. Get additional info from query params (sent by loader)
     const searchParams = request.nextUrl.searchParams;

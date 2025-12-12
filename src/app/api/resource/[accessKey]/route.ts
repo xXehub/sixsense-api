@@ -15,7 +15,8 @@ const EXECUTOR_PATTERNS = [
   'roblox', 'synapse', 'script-ware', 'scriptware', 'krnl', 
   'fluxus', 'oxygen', 'hydrogen', 'electron', 'evon',
   'arceus', 'comet', 'delta', 'trigon', 'vega',
-  'httpget', 'syn', 'http_request', 'request'
+  'httpget', 'syn', 'http_request', 'request',
+  'robloxstudio', 'rbxstudio' // Roblox Studio
 ];
 
 // Browser patterns to block
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
       .single();
 
     if (error || !script) {
+      console.log(`[Resource] Script not found: ${accessKey}`, error);
       return new NextResponse(
         '-- Resource not found\nreturn function() warn("[SixSense] Invalid resource request") end',
         { 
@@ -97,6 +99,8 @@ export async function GET(request: NextRequest, { params }: DecoderParams) {
         }
       );
     }
+    
+    console.log(`[Resource] Script found: ${accessKey}, require_key: ${script.require_key}`);
 
     // 2. Get or generate encryption key for this script
     let encryptionKey = script.encryption_key;
