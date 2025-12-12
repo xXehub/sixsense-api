@@ -48,8 +48,12 @@ export async function GET(request: NextRequest) {
       return errorResponse('DATABASE_ERROR', error.message, 500);
     }
 
-    // Generate loadstring URLs for each script
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+    // Generate loadstring URLs for each script - get base URL dynamically
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const protocol = request.headers.get('x-forwarded-proto') || (isDevelopment ? 'http' : 'https');
+    const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
+    
     const scriptsWithUrls = data?.map(script => ({
       ...script,
       loadstring_url: `${baseUrl}/api/script/${script.access_key}`,
@@ -118,7 +122,11 @@ export async function POST(request: NextRequest) {
       return errorResponse('DATABASE_ERROR', error.message, 500);
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+    // Get base URL dynamically from request or environment
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const protocol = request.headers.get('x-forwarded-proto') || (isDevelopment ? 'http' : 'https');
+    const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
 
     return successResponse({
       script: {

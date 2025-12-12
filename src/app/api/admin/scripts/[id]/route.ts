@@ -51,7 +51,11 @@ export async function GET(request: NextRequest, { params }: ScriptParams) {
       return errorResponse('NOT_FOUND', 'Script not found', 404);
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sixsense.dev';
+    // Get base URL dynamically from request or environment
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const protocol = request.headers.get('x-forwarded-proto') || (isDevelopment ? 'http' : 'https');
+    const host = request.headers.get('host') || request.headers.get('x-forwarded-host');
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
 
     return successResponse({
       script: {
